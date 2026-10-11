@@ -30,6 +30,13 @@ function postResponse(event: MessageEvent, response: ExtensionExternalResponse<u
 }
 
 async function authorizeRequest(request: ExtensionExternalRequest<unknown>, event: MessageEvent): Promise<boolean> {
+  if (
+    ["MULTIPOST_EXTENSION_LOCAL_STATUS", "MULTIPOST_EXTENSION_LOCAL_TASK", "MULTIPOST_EXTENSION_LOCAL_PAIR"].includes(
+      request.action,
+    )
+  ) {
+    return event.origin === "http://localhost:2663" && window === window.top;
+  }
   if (ACTIONS_NOT_NEED_TRUST_DOMAIN.includes(getRightAction(request.action))) return true;
 
   try {

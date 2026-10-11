@@ -1,0 +1,22 @@
+{
+  "taskId": "543fe33b-207b-4dd1-923a-d5317a33d7d6",
+  "platform": "DYNAMIC_REDNOTE",
+  "action": "prepare",
+  "createdAt": 1791693611.349374,
+  "updatedAt": 1791693621.261515,
+  "receipt": {
+    "taskId": "543fe33b-207b-4dd1-923a-d5317a33d7d6",
+    "action": "prepare",
+    "platform": "DYNAMIC_REDNOTE",
+    "status": "filled",
+    "tabId": 875191335,
+    "code": "FIELDS_VERIFIED",
+    "evidence": {
+      "body": "这是一条 MultiPost 本机动态图文链路测试内容，用于核对标题、正文和图片是否完整进入小红书编辑页面。本次目标动作是准备内容供检查。 #链路测试#",
+      "imageCount": 1,
+      "imageNames": ["test-card.png"],
+      "title": "MultiPost图文最终验证",
+      "url": "https://creator.xiaohongshu.com/publish/publish?target=image"
+    }
+  }
+}

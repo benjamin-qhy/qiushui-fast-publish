@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<title>MultiPost 本机执行器配对</title>
+<style>body{font:16px system-ui;max-width:750px;margin:60px auto;padding:24px}button{padding:12px}pre{white-space:pre-wrap}</style>
+<h1>连接本机 MultiPost 执行器</h1>
+<p>这是当前电脑的一次性安装配置。配对后，Agent 仅提交本机任务，插件自行打开和操作发布页面。</p>
+<button id="pair">配对当前 MultiPost 插件</button>
+<pre id="result">等待配对</pre>
+<script>
+const button = document.querySelector('#pair');
+button.onclick = () => {
+  button.disabled = true;
+  const traceId = crypto.randomUUID();
+  const timer = setTimeout(() => { document.querySelector('#result').textContent = '未收到插件响应，请确认已加载支持本机执行器的开发版。'; }, 8000);
+  window.addEventListener('message', function listener(event) {
+    if (event.source !== window || event.origin !== location.origin || event.data?.type !== 'response' || event.data.traceId !== traceId) return;
+    clearTimeout(timer); window.removeEventListener('message', listener);
+    document.querySelector('#result').textContent = JSON.stringify(event.data.data || event.data, null, 2);
+  });
+  window.postMessage({type:'request', action:'MULTIPOST_EXTENSION_LOCAL_PAIR', traceId, data:{token:location.hash.slice(1)}}, location.origin);
+};
+</script>
+</html>

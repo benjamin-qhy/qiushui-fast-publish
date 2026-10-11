@@ -28,6 +28,7 @@ export interface DynamicData {
   images: FileData[];
   videos: FileData[];
   tags?: string[];
+  textOnly?: boolean;
   scheduledPublishTime?: number;
 }
 
@@ -86,7 +87,7 @@ export interface PlatformInfo {
   iconifyIcon?: string;
   platformName: string;
   injectUrl: string;
-  injectFunction: (data: SyncData) => Promise<void>;
+  injectFunction: (data: SyncData) => Promise<unknown>;
   tags?: string[];
   accountKey: string;
   accountInfo?: AccountInfo;

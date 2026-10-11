@@ -1,4 +1,6 @@
 .plasmo
+/.multipost-local/
+skills/**/__pycache__/
 
 # dependencies
 /node_modules

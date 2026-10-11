@@ -71,15 +71,11 @@
   "manifest": {
     "default_locale": "zh_CN",
     "externally_connectable": {
-      "matches": [
-        "https://paiban.md/*",
-        "http://localhost:2663/*"
-      ]
+      "matches": ["https://paiban.md/*", "http://localhost:2663/*"]
     },
-    "host_permissions": [
-      "https://*/*"
-    ],
+    "host_permissions": ["http://localhost:2663/*", "https://*/*"],
     "permissions": [
+      "alarms",
       "activeTab",
       "tabs",
       "scripting",
@@ -90,18 +86,12 @@
     ],
     "web_accessible_resources": [
       {
-        "resources": [
-          "assets/icon.png"
-        ],
-        "matches": [
-          "https://www.plasmo.com/*"
-        ]
+        "resources": ["assets/icon.png"],
+        "matches": ["https://www.plasmo.com/*"]
       }
     ]
   },
   "lint-staged": {
-    "*.{js,ts,cjs,mjs,d.cts,d.mts,jsx,tsx,json,jsonc}": [
-      "biome check --write --unsafe --no-errors-on-unmatched"
-    ]
+    "*.{js,ts,cjs,mjs,d.cts,d.mts,jsx,tsx,json,jsonc}": ["biome check --write --unsafe --no-errors-on-unmatched"]
   }
 }

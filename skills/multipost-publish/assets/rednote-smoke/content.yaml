@@ -1,0 +1,6 @@
+type: DYNAMIC
+title: MultiPost图文验证2
+bodyFile: body.md
+images:
+  - test-card.png
+tags: [链路测试]

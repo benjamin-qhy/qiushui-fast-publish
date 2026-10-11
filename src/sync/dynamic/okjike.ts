@@ -6,7 +6,7 @@ interface OkjikeConfig {
 }
 
 // Prefer image posts.
-export async function DynamicOkjike(data: SyncData) {
+export async function DynamicOkjike(data: SyncData, localTask = false) {
   const { title, content, images, tags } = data.data as DynamicData;
   const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
 
@@ -249,7 +249,7 @@ export async function DynamicOkjike(data: SyncData) {
     }
 
     const tagSuffix = tags?.length ? ` ${tags.map((t) => `#${t}`).join(" ")}` : "";
-    const fullContent = `${title}\n${content}${tagSuffix}`;
+    const fullContent = (data.data as DynamicData).textOnly ? content : `${title}\n${content}${tagSuffix}`;
     const pasteEvent = new ClipboardEvent("paste", {
       bubbles: true,
       cancelable: true,
@@ -268,12 +268,51 @@ export async function DynamicOkjike(data: SyncData) {
     const pastedCount = await uploadFilesByPaste(editor, files);
     if (pastedCount > 0) return pastedCount;
 
+    // In a local task the paste might have succeeded without detectable preview.
+    // Do not make a second upload attempt until the original page is inspected.
+    if (localTask) return 0;
+
     return await uploadFilesByInput(editor, files);
   }
 
   try {
+    if (localTask) {
+      const existing = (await waitForElement(
+        'form div[contenteditable="true"], div[contenteditable="true"][role="textbox"]',
+      )) as HTMLElement | null;
+      const expectedText = (data.data as DynamicData).textOnly
+        ? content
+        : `${title}\n${content}${tags?.length ? ` ${tags.map((tag) => `#${tag}`).join(" ")}` : ""}`;
+      const normalize = (value: string) => value.replace(/\s+/g, " ").trim();
+      if (
+        (data.data as DynamicData).textOnly &&
+        existing &&
+        normalize(existing.innerText) === normalize(expectedText) &&
+        countAttachedImagePreviews(existing) === 0
+      )
+        return {
+          status: "filled",
+          code: "FIELDS_VERIFIED",
+          evidence: {
+            body: existing.innerText,
+            imageCount: 0,
+            textOnly: true,
+            alreadyFilled: true,
+            url: location.href,
+          },
+        };
+      if (
+        existing?.textContent?.replace(/\u200b|\ufeff/g, "").trim() ||
+        ((data.data as DynamicData).textOnly && existing && countAttachedImagePreviews(existing) > 0)
+      ) {
+        return { status: "needs_attention", code: "EDITOR_NOT_EMPTY", evidence: { url: location.href } };
+      }
+    }
     const editor = await fillContent();
-    if (!editor) return;
+    if (!editor) {
+      if (localTask) return { status: "needs_attention", code: "EDITOR_NOT_READY", evidence: { url: location.href } };
+      return;
+    }
 
     const requestedImageCount = Math.min(images?.length ?? 0, 9);
     let attachedImageCount = 0;
@@ -286,6 +325,28 @@ export async function DynamicOkjike(data: SyncData) {
     const selectedTopic = (platform?.extraConfig as OkjikeConfig)?.selectedTopic || "";
     if (selectedTopic) {
       await handleTopicSelection(selectedTopic);
+    }
+
+    if (localTask) {
+      await sleep(500);
+      const expected = (data.data as DynamicData).textOnly
+        ? content
+        : `${title}\n${content}${tags?.length ? ` ${tags.map((tag) => `#${tag}`).join(" ")}` : ""}`;
+      const normalize = (value: string) => value.replace(/\s+/g, " ").trim();
+      if ((data.data as DynamicData).textOnly) attachedImageCount = countAttachedImagePreviews(editor);
+      const evidence = {
+        body: editor.innerText,
+        imageCount: attachedImageCount,
+        imageNames: images.map((image) => image.name),
+        url: location.href,
+      };
+      if (normalize(editor.innerText) !== normalize(expected)) {
+        return { status: "result_unconfirmed", code: "FIELDS_NOT_VERIFIED", evidence };
+      }
+      if (attachedImageCount !== images.length) {
+        return { status: "result_unconfirmed", code: "UPLOAD_UNCONFIRMED", evidence };
+      }
+      return { status: "filled", code: "FIELDS_VERIFIED", evidence };
     }
 
     if (data.isAutoPublish) {
@@ -328,5 +389,13 @@ export async function DynamicOkjike(data: SyncData) {
     }
   } catch (error) {
     console.error("发布过程中出错:", error);
+    if (localTask) {
+      return {
+        status: "result_unconfirmed",
+        code: "PAGE_ERROR",
+        message: String(error instanceof Error ? error.message : error),
+        evidence: { url: location.href },
+      };
+    }
   }
 }

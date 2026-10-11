@@ -7,7 +7,7 @@ interface WeixinUploadResult {
   height?: number;
 }
 
-export async function DynamicWeixin(data: SyncData) {
+export async function DynamicWeixin(data: SyncData, localTask = false) {
   // 从URL中提取token
   await new Promise((resolve) => setTimeout(resolve, 1000));
 
@@ -50,8 +50,17 @@ export async function DynamicWeixin(data: SyncData) {
     };
   }
 
-  const { token, ticket, userName } = await readInfo();
+  const { token, ticket, userName, nickname } = await readInfo();
   const dynamicData = data.data as DynamicData;
+  const title = dynamicData.title?.trim() || dynamicData.content?.trim().split("\n")[0] || "";
+  const tagSuffix = dynamicData.tags?.length ? ` ${dynamicData.tags.map((tag) => `#${tag}`).join(" ")}` : "";
+  const completeContent = `${dynamicData.content}${tagSuffix}`;
+  if (!title || title.length > 64 || !completeContent.trim() || completeContent.length > 1000) {
+    throw new Error("公众号动态图文标题或正文超过平台限制；内容未截断，请调整后重试");
+  }
+  if (!dynamicData.images.length || dynamicData.images.length > 20 || dynamicData.videos?.length) {
+    throw new Error("公众号动态图文需要 1–20 张图片且不能包含视频");
+  }
 
   // 上传图片
   async function uploadImage(file: File): Promise<WeixinUploadResult | null> {
@@ -94,8 +103,7 @@ export async function DynamicWeixin(data: SyncData) {
   // 创建动态
   async function createDynamic(content: string, images: WeixinUploadResult[]) {
     const formData = new FormData();
-    const title = dynamicData.title?.slice(0, 64) || content?.trim().split("\n")[0].slice(0, 64) || "";
-    const normalizedContent = content.slice(0, 1000);
+    const normalizedContent = content;
 
     // 基本信息
     formData.append("token", token);
@@ -125,8 +133,7 @@ export async function DynamicWeixin(data: SyncData) {
     formData.append("fileid0", "");
     formData.append("digest0", "");
     formData.append("auto_gen_digest0", "1");
-    const tagSuffix = dynamicData.tags?.length ? ` ${dynamicData.tags.map((t) => `#${t}`).join(" ")}` : "";
-    formData.append("content0", `${normalizedContent}${tagSuffix}`.slice(0, 1000));
+    formData.append("content0", completeContent);
     formData.append("sourceurl0", "");
     formData.append("need_open_comment0", "1");
     formData.append("only_fans_can_comment0", "0");
@@ -225,6 +232,9 @@ export async function DynamicWeixin(data: SyncData) {
     });
 
     const result = await response.json();
+    if (!response.ok || (result?.base_resp?.err_msg && result.base_resp.err_msg !== "ok")) {
+      throw new Error(`公众号创建草稿失败：${result?.base_resp?.err_msg || response.status}`);
+    }
     return result?.appMsgId;
   }
 
@@ -274,14 +284,12 @@ export async function DynamicWeixin(data: SyncData) {
 
     // 上传图片
     const uploadedImages: WeixinUploadResult[] = [];
-    let imageCount = 0;
     for (const fileData of dynamicData.images) {
       const file = await fetch(fileData.url).then((r) => r.blob());
       const fileType = fileData.type || file.type;
-      if (!fileType.startsWith("image/")) continue;
-      if (imageCount >= 20) break;
-      imageCount += 1;
+      if (!fileType.startsWith("image/")) throw new Error(`不是图片：${fileData.name}`);
       const uploadResult = await uploadImage(new File([file], fileData.name, { type: fileType }));
+      if (!uploadResult) throw new Error(`图片上传失败：${fileData.name}`);
 
       if (uploadResult) {
         // 获取图片实际尺寸
@@ -321,6 +329,17 @@ export async function DynamicWeixin(data: SyncData) {
     editUrl.searchParams.set("token", token);
     editUrl.searchParams.set("lang", "zh_CN");
 
+    if (localTask) {
+      host.remove();
+      return {
+        appMsgId: String(appMsgId),
+        editUrl: editUrl.toString(),
+        title,
+        content: completeContent,
+        imageCount: uploadedImages.length,
+        account: nickname,
+      };
+    }
     window.location.href = editUrl.toString();
 
     // 发布成功后更新提示

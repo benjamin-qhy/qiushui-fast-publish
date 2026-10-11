@@ -1,0 +1,19 @@
+{
+  "taskId": "385fbcdd-acbb-4353-9b78-6ccccfb36655",
+  "platform": "ARTICLE_WEIXIN",
+  "action": "save_draft",
+  "createdAt": 1791701737.924661,
+  "updatedAt": 1791701776.667915,
+  "receipt": {
+    "taskId": "385fbcdd-acbb-4353-9b78-6ccccfb36655",
+    "action": "save_draft",
+    "platform": "ARTICLE_WEIXIN",
+    "status": "draft_saved",
+    "tabId": 875191484,
+    "code": "DRAFT_ID_CONFIRMED",
+    "evidence": {
+      "appMsgId": "100001908",
+      "title": "MultiPost公众号草稿验证"
+    }
+  }
+}

@@ -1171,5 +1171,47 @@
   "platformTencentVideo": {
     "message": "腾讯视频",
     "description": "腾讯视频 平台名称"
+  },
+  "localTask_ORIGINAL_PAGE_REQUIRED": {
+    "message": "原页面记录不存在，请核查任务，避免重复上传。"
+  },
+  "localTask_PLATFORM_ORIGIN_CHANGED": {
+    "message": "原页面已离开小红书创作者平台，请检查。"
+  },
+  "localTask_LOGIN_REQUIRED": {
+    "message": "请在小红书创作者页面完成登录，再继续原任务。"
+  },
+  "localTask_RECONCILE_REQUIRED": {
+    "message": "原页面尚不能核对全部图文，请人工检查；不重新上传或覆盖。"
+  },
+  "localTask_EDITOR_NOT_EMPTY": {
+    "message": "页面已有编辑内容，已停止以避免覆盖。"
+  },
+  "localTask_INVALID_MEDIA": {
+    "message": "首版只接受至少一张图片的动态图文。"
+  },
+  "localTask_UPLOAD_PAGE_REQUIRED": {
+    "message": "未找到图文上传入口，请检查登录或平台页面。"
+  },
+  "localTask_MANUAL_CHECK_REQUIRED": {
+    "message": "上传后平台要求验证，请处理原页面后核查原任务。"
+  },
+  "localTask_UPLOAD_UNCONFIRMED": {
+    "message": "无法核对上传图片数量或编辑控件，保留页面，避免重复上传。"
+  },
+  "localTask_FIELDS_NOT_VERIFIED": {
+    "message": "已尝试填写，但标题、正文或图片数量未全部匹配；请核查原页面。"
+  },
+  "localTask_EXECUTION_ERROR": {
+    "message": "执行中断或失败，请核查原任务和页面。"
+  },
+  "localTask_PAGE_ERROR": {
+    "message": "平台操作出现错误，请核查原页面。"
+  },
+  "localTask_ACTION_NOT_VERIFIED": {
+    "message": "该平台动作尚未验证，不执行。"
+  },
+  "localTask_MISSING_RESULT": {
+    "message": "插件未取得平台结果，请核查原页面。"
   }
 }

@@ -1197,5 +1197,47 @@
   "platformTencentVideo": {
     "message": "Tencent Video",
     "description": "Tencent Video platform name"
+  },
+  "localTask_ORIGINAL_PAGE_REQUIRED": {
+    "message": "The original page record is missing. Check this task before uploading again."
+  },
+  "localTask_PLATFORM_ORIGIN_CHANGED": {
+    "message": "The original page has left the Rednote creator site."
+  },
+  "localTask_LOGIN_REQUIRED": {
+    "message": "Sign in on the Rednote creator page, then continue the original task."
+  },
+  "localTask_RECONCILE_REQUIRED": {
+    "message": "The original image post cannot be verified. Check the page; no re-upload or overwrite was performed."
+  },
+  "localTask_EDITOR_NOT_EMPTY": {
+    "message": "The editor contains existing content. Stopped to prevent overwriting it."
+  },
+  "localTask_INVALID_MEDIA": {
+    "message": "This adapter requires an image post with at least one image."
+  },
+  "localTask_UPLOAD_PAGE_REQUIRED": {
+    "message": "Image upload controls were not found. Check the login and page."
+  },
+  "localTask_MANUAL_CHECK_REQUIRED": {
+    "message": "The platform requested verification. Handle the original page, then reconcile this task."
+  },
+  "localTask_UPLOAD_UNCONFIRMED": {
+    "message": "Could not verify the image count or editor controls. The original page is retained."
+  },
+  "localTask_FIELDS_NOT_VERIFIED": {
+    "message": "Filling was attempted, but the title, body or image count does not match. Check the original page."
+  },
+  "localTask_EXECUTION_ERROR": {
+    "message": "Execution failed or was interrupted. Check the original task and page."
+  },
+  "localTask_PAGE_ERROR": {
+    "message": "A platform operation failed. Check the original page."
+  },
+  "localTask_ACTION_NOT_VERIFIED": {
+    "message": "This platform action has not been verified and will not run."
+  },
+  "localTask_MISSING_RESULT": {
+    "message": "No platform result was returned. Check the original page."
   }
 }

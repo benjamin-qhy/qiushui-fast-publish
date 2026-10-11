@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="zh-CN">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width">
+<title>MultiPost 本机任务</title>
+<style>body{font:16px system-ui;max-width:900px;margin:48px auto;padding:24px}button{padding:12px 20px}pre{white-space:pre-wrap;background:#f3f4f6;padding:20px;border-radius:10px}#warning{color:#92400e}</style>
+<h1>MultiPost 本机任务</h1>
+<p>首版仅准备小红书动态图文。任务完成须由插件核对标题、正文与图片数量。</p>
+<p id="connection">正在检测 MultiPost 插件…</p>
+<p id="warning"></p>
+<button id="start" disabled>执行原任务</button>
+<pre id="result">正在读取任务…</pre>
+<script>
+const [taskId, token] = location.hash.slice(1).split(':');
+const output = document.querySelector('#result');
+const button = document.querySelector('#start');
+function extension(action, data) {
+  return new Promise((resolve, reject) => {
+    const traceId = crypto.randomUUID();
+    const timer = setTimeout(() => { window.removeEventListener('message', listener); reject(new Error('未收到本机协议响应，请确认开发版 MultiPost 已加载或重载。')); }, 8000);
+    function listener(event) {
+      if (event.source !== window || event.origin !== location.origin || event.data?.type !== 'response' || event.data?.traceId !== traceId) return;
+      clearTimeout(timer); window.removeEventListener('message', listener);
+      event.data.code === 0 ? resolve(event.data.data) : reject(new Error(event.data.message));
+    }
+    window.addEventListener('message', listener);
+    window.postMessage({ type: 'request', traceId, action, data }, location.origin);
+  });
+}
+async function status() {
+  const response = await fetch('/status?taskId=' + encodeURIComponent(taskId) + '&token=' + encodeURIComponent(token));
+  const result = await response.json();
+  output.textContent = JSON.stringify(result, null, 2);
+  if (!response.ok) throw new Error(result.error);
+  return result;
+}
+button.onclick = async () => {
+  button.disabled = true;
+  try {
+    const result = await extension('MULTIPOST_EXTENSION_LOCAL_TASK', { taskId, token });
+    if (!result?.accepted) throw new Error(result?.error || '任务未被接收');
+    document.querySelector('#connection').textContent = '插件已接收，正在等待平台核对结果…';
+  } catch (error) { document.querySelector('#warning').textContent = error.message; }
+};
+(async () => {
+  try {
+    await status();
+    const result = await extension('MULTIPOST_EXTENSION_LOCAL_STATUS');
+    if (result?.protocol !== 1) throw new Error('当前插件尚未支持本机协议，请重载本项目开发版。');
+    document.querySelector('#connection').textContent = '已连接 MultiPost：' + result.extensionId;
+    button.disabled = false;
+  } catch (error) { document.querySelector('#warning').textContent = error.message; }
+  setInterval(() => status().catch(error => { document.querySelector('#warning').textContent = error.message; }), 1500);
+})();
+</script>
+</html>

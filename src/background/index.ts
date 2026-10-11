@@ -9,6 +9,7 @@ import {
 } from "~sync/common";
 import QuantumEntanglementKeepAlive from "../utils/keep-alive";
 import { linkExtensionMessageHandler, starter } from "./services/api";
+import { localTaskMessageHandler, setupLocalExecutor } from "./services/local-task";
 import {
   addTabsManagerMessages,
   tabsManagerHandleTabRemoved,
@@ -20,6 +21,7 @@ import { trustDomainMessageHandler } from "./services/trust-domain";
 const storage = new Storage({
   area: "local",
 });
+setupLocalExecutor();
 
 async function initDefaultTrustedDomains() {
   const trustedDomains = await storage.get<Array<{ id: string; domain: string }>>("trustedDomains");
@@ -44,6 +46,7 @@ chrome.runtime.onInstalled.addListener((object) => {
 // Listen Message || 监听消息 || START
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   const handled =
+    localTaskMessageHandler(request, sender, sendResponse) ||
     defaultMessageHandler(request, sender, sendResponse) ||
     tabsManagerMessageHandler(request, sender, sendResponse) ||
     trustDomainMessageHandler(request, sender, sendResponse) ||
@@ -63,7 +66,11 @@ let currentSyncData: SyncData | null = null;
 let currentPublishPopup: chrome.windows.Window | null = null;
 const defaultMessageHandler = (request, _sender, sendResponse) => {
   if (request.action === "MULTIPOST_EXTENSION_CHECK_SERVICE_STATUS") {
-    sendResponse({ extensionId: chrome.runtime.id, extensionVersion: chrome.runtime.getManifest().version, edition: "community" });
+    sendResponse({
+      extensionId: chrome.runtime.id,
+      extensionVersion: chrome.runtime.getManifest().version,
+      edition: "community",
+    });
     return true;
   }
   if (request.action === "MULTIPOST_EXTENSION_PUBLISH") {

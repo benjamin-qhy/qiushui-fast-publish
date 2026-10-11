@@ -1,0 +1,19 @@
+type: DYNAMIC
+title: AI提速后，瓶颈去哪了？
+content: >-
+  AI让代码写得更快，项目却未必更快。真实项目里，测试一度跟不上开发，1月上线前缺陷拦截率仅64%。我们建立分级审核，用真实数据库做集成测试，让自动化测试覆盖3个核心业务领域，并分5批处理36项以上遗留问题。缺陷拦截率随后升至86%；第一季度22次发布零回滚，2月至6月完成34次发布、每月6—9次。麦肯锡2026年调查中，约80%的受访者认为AI提高了个人生产力，37%认为AI对组织息税前利润产生正向贡献。AI提升单点效率，系统决定整体效率。调查来源：https://www.mckinsey.com/capabilities/quantumblack/our-insights/the-state-of-ai
+tags:
+  - AI开发
+  - 研发效能
+  - 软件测试
+images:
+  - 01-development-bottleneck.png
+  - 02-shifted-bottleneck.png
+  - 03-upgrade-system.png
+overrides:
+  DYNAMIC_X:
+    content: >-
+      AI加速开发，测试却成了新瓶颈。真实项目中，缺陷拦截率从64%升至86%；第一季度22次发布零回滚。麦肯锡2026调查：80%受访者称个人生产力提高，37%称AI对组织EBIT有正向贡献。AI提升单点效率，工作系统决定整体效率。
+    tags:
+      - AI开发
+      - 研发效能

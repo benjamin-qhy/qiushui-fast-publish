@@ -31,7 +31,7 @@ interface ShareImageInfo {
   width: number;
 }
 
-export async function ArticleWeixin(data: SyncData) {
+export async function ArticleWeixin(data: SyncData, localTask = false) {
   // 从URL中提取token
   await new Promise((resolve) => setTimeout(resolve, 1000));
 
@@ -65,7 +65,7 @@ export async function ArticleWeixin(data: SyncData) {
     const ticket = ticketMatch ? ticketMatch[1] : "";
     const userName = userNameMatch ? userNameMatch[1] : "";
 
-    console.log("提取的数据:", { token, nickname, ticket, userName });
+    console.debug("微信公众号会话信息已读取");
 
     return { token, nickname, ticket, userName };
   }
@@ -582,6 +582,10 @@ export async function ArticleWeixin(data: SyncData) {
     editUrl.searchParams.set("token", token);
     editUrl.searchParams.set("lang", "zh_CN");
 
+    if (localTask) {
+      host.remove();
+      return { appMsgId: String(appMsgId), editUrl: editUrl.toString(), title: articleData.title };
+    }
     window.location.href = editUrl.toString();
 
     // 发布成功后更新提示
