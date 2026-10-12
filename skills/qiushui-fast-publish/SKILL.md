@@ -1,5 +1,5 @@
 ---
-name: multipost-publish
+name: qiushui-fast-publish
 description: 使用本机 FastPublish 浏览器扩展读取内容目录、执行已配置平台的动态图文任务，并核对逐平台回执。
 ---
 

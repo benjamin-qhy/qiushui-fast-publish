@@ -1,5 +1,7 @@
 # 纯文字动态分发验证（2026-10-11）
 
+> 路径迁移说明（2026-10-12）：Skill 现位于 `skills/qiushui-fast-publish/`，测试素材按场景存放于 `tests/fixtures/`，测试命令为 `python3 -m unittest discover -s tests -p 'test_*.py'`。下文的历史命令和旧路径保留执行时记录，文档链接已指向现位置。
+
 ## 输入与结果语义
 
 同一份本机内容包 `.multipost-local/textonly-2026-10-11/` 使用 `type: DYNAMIC`、无图片、`bodyFile`、独立标题“此标题不应发送”和标签“纯文字联调”。预检生成的任务数据 `title` 为空，标签以 `#纯文字联调` 文本附于正文末尾。所有任务目标动作是 `prepare`，没有点击公开发布。`filled` 仅代表当前编辑器核对通过，不保证刷新后仍存在。

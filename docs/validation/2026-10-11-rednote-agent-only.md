@@ -1,12 +1,14 @@
 # 小红书动态图文：Agent 仅调用 CLI 的真实验收
 
+> 路径迁移说明（2026-10-12）：Skill 现位于 `skills/qiushui-fast-publish/`，测试素材按场景存放于 `tests/fixtures/`，测试命令为 `python3 -m unittest discover -s tests -p 'test_*.py'`。下文的历史命令和旧路径保留执行时记录，文档链接已指向现位置。
+
 日期：2026-10-11，当前电脑，目标动作 `prepare`。
 
 ## 运行职责
 
 Agent 只调用本地脚本／HTTP；MultiPost 插件负责打开平台页、上传、填写和核对结果。浏览器控制工具只用于开发排错、一次性配对设置和回执完成后的观察，不是 Skill 的执行依赖。
 
-Skill 位于 [skills/multipost-publish](../../skills/multipost-publish/SKILL.md)，安装与跨 Agent 使用方式见[setup.md](../../skills/multipost-publish/references/setup.md)。插件通过 Chrome alarms 约每 30 秒唤醒后台，带独立执行器凭证领取本机队列。任务认领与结果持久保存；中断不会自动重复投递。
+Skill 位于 [skills/qiushui-fast-publish](../../skills/qiushui-fast-publish/SKILL.md)，安装与跨 Agent 使用方式见[setup.md](../../skills/qiushui-fast-publish/references/setup.md)。插件通过 Chrome alarms 约每 30 秒唤醒后台，带独立执行器凭证领取本机队列。任务认领与结果持久保存；中断不会自动重复投递。
 
 ## 实测步骤与证据
 

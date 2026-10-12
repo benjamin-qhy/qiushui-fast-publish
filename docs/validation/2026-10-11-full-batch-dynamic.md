@@ -1,5 +1,7 @@
 # 九平台动态图文一次分发验证（2026-10-11）
 
+> 路径迁移说明（2026-10-12）：Skill 现位于 `skills/qiushui-fast-publish/`，测试素材按场景存放于 `tests/fixtures/`，测试命令为 `python3 -m unittest discover -s tests -p 'test_*.py'`。下文的历史命令和旧路径保留执行时记录，文档链接已指向现位置。
+
 ## 内容与范围
 
 在本机用 `.multipost-local/fullrun-2026-10-11/` 中同一份标题、正文、标签和 `test-card.png`，执行一次 `run-config`。按 `skills/multipost-publish/config/platforms.yaml` 顺序投递九个平台。未请求或点击公开发布。标签通过正文里的 `#链路验证#` 文本呈现，未验证各平台原生话题选择。

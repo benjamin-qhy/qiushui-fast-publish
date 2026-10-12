@@ -1,5 +1,7 @@
 # 动态图文插件链路验证（2026-10-11）
 
+> 路径迁移说明（2026-10-12）：Skill 现位于 `skills/qiushui-fast-publish/`，测试素材按场景存放于 `tests/fixtures/`，测试命令为 `python3 -m unittest discover -s tests -p 'test_*.py'`。下文的历史命令和旧路径保留执行时记录，文档链接已指向现位置。
+
 目标：同一份本地内容包由项目根目录 `skills/multipost-publish` 读取，MultiPost 插件完成平台页面操作，并由本机任务 API 保存逐平台回执。`filled`、`draft_saved`、`published` 与 `result_unconfirmed` 分开记录。
 
 | 平台 | 目标动作 | 当前结果 | 本机任务 ID | 平台回执 / 备注 |

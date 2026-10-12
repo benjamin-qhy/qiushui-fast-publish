@@ -1,5 +1,7 @@
 # 本地 Skill 调用 MultiPost 的发布流程：现状与设计决定
 
+> 路径迁移说明（2026-10-12）：Skill 现位于 `skills/qiushui-fast-publish/`，测试素材按场景存放于 `tests/fixtures/`，测试命令为 `python3 -m unittest discover -s tests -p 'test_*.py'`。下文的历史命令和旧路径保留执行时记录，文档链接已指向现位置。
+
 日期：2026-10-11。本文记录实施前代码的流程梳理及用户逐轮确认的设计决定。已实施项目内 Skill、本机桥接、任务回执及小红书动态图文的“准备内容”适配，并完成真实闭环验证；其他类型和暂存／直接发布仍待适配与验证。最新实施证据见[Agent 仅调用 CLI 的验收记录](../validation/2026-10-11-rednote-agent-only.md)，早期桥接页测试见[本机验收记录](../validation/2026-10-11-rednote-local-chain.md)，平台入口范围另见[平台与内容类型清单](../platform-publishing-capabilities.md)。
 
 ## 运行职责（按用户最新要求实施）
@@ -57,7 +59,7 @@ Agent + Skill ← 状态查询 ← 持久回执
 | 结果 | 弹窗的“发布完成”以标签页回调为依据；平台函数没有统一回执 | 需要新增逐平台状态、证据和错误回传，才能准确通知 Skill |
 | 并发 | 后台仅有一份 `currentSyncData` | 并发调用可能串内容；可靠链路需要任务 ID 和串行化或隔离 |
 
-旧组件、现用入口和账号缓存代码见[动态设置](../../src/components/Sync/DynamicTab.tsx)、[文章设置](../../src/components/Sync/ArticleTab.tsx)、[视频设置](../../src/components/Sync/VideoTab.tsx)、[当前弹窗入口](../../src/popup/index.tsx)、[账号管理](../../src/sync/account.ts)。素材和结果处理见[载荷定义](../../src/sync/common.ts)及[发布弹窗](../../src/tabs/publish.tsx)。
+旧组件、现用入口和账号缓存代码见[动态设置](../../src/components/Sync/DynamicTab.tsx)、[文章设置](../../src/components/Sync/ArticleTab.tsx)、[视频设置](../../src/components/Sync/VideoTab.tsx)、旧弹窗入口（当时为 `src/popup/index.tsx`，当前已移除）、[账号管理](../../src/sync/account.ts)。素材和结果处理见[载荷定义](../../src/sync/common.ts)及[发布弹窗](../../src/tabs/publish.tsx)。
 
 `isAutoPublish: false` 也不能直接解释为“只准备”：例如部分文章处理函数在此条件下会保存草稿。首版必须按“平台 + 内容类型 + 目标动作”适配，并检查现有函数的实际副作用；不能只改布尔值后复用全部处理函数。
 

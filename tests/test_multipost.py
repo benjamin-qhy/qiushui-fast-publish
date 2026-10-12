@@ -11,7 +11,11 @@ from urllib.request import Request, build_opener, ProxyHandler
 from urllib.error import HTTPError
 from http.server import ThreadingHTTPServer
 
-spec = importlib.util.spec_from_file_location('multipost', Path(__file__).with_name('multipost.py'))
+ROOT = Path(__file__).resolve().parents[1]
+FIXTURES = ROOT / 'tests/fixtures'
+SCRIPT = ROOT / 'skills/qiushui-fast-publish/scripts/multipost.py'
+
+spec = importlib.util.spec_from_file_location('multipost', SCRIPT)
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
 
@@ -20,7 +24,7 @@ class PreflightTest(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
         self.folder = Path(self.temp.name) / 'content'
-        shutil.copytree(Path(__file__).parents[1] / 'assets/rednote-smoke', self.folder)
+        shutil.copytree(FIXTURES / 'dynamic/image-card-rednote', self.folder)
         self.metadata = module.read_metadata(self.folder / 'content.yaml')
 
     def tearDown(self):
@@ -97,7 +101,7 @@ class PreflightTest(unittest.TestCase):
 
     def test_weixin_article_requires_explicit_draft_and_cover(self):
         article = Path(self.temp.name) / 'article'
-        shutil.copytree(Path(__file__).parents[1] / 'assets/weixin-article-smoke', article)
+        shutil.copytree(FIXTURES / 'article/weixin-draft', article)
         config = Path(self.temp.name) / 'article-platforms.json'
         config.write_text(json.dumps({'ARTICLE': ['ARTICLE_WEIXIN']}))
         with self.assertRaisesRegex(ValueError, 'save_draft'):
@@ -111,7 +115,7 @@ class PreflightTest(unittest.TestCase):
 
     def test_weixin_video_preflight_checks_file_and_action(self):
         folder = Path(self.temp.name) / 'video'
-        shutil.copytree(Path(__file__).parents[1] / 'assets/weixin-video-smoke', folder)
+        shutil.copytree(FIXTURES / 'video/weixinchannel-prepare', folder)
         config = Path(self.temp.name) / 'video-platforms.json'
         config.write_text(json.dumps({'VIDEO': ['VIDEO_WEIXINCHANNEL']}))
         plan = module.preflight(folder, config, 'prepare', None)
@@ -214,7 +218,7 @@ class AutomaticDeliveryTest(unittest.TestCase):
         self.previous_state = module.STATE
         module.STATE = Path(self.temp.name) / 'state'
         self.folder = Path(self.temp.name) / 'content'
-        shutil.copytree(Path(__file__).parents[1] / 'assets/rednote-smoke', self.folder)
+        shutil.copytree(FIXTURES / 'dynamic/image-card-rednote', self.folder)
         self.server = ThreadingHTTPServer(('127.0.0.1', 0), module.Handler)
         self.server.api_token = 'admin-test'
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)

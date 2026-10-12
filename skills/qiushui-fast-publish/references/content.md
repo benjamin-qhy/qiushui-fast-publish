@@ -27,8 +27,8 @@ images: []
 
 本期默认配置包含小红书、微信公众号、微信视频号、抖音、今日头条、即刻、知识星球、脉脉和 X 的动态图文。公众号目标动作是 `save_draft`；视频号是先填写核对、再点击发表的 `publish`；其余平台为 `prepare`。标题、正文、标签和图片按平台分别预检；X 的合并文本最多 280 字符、1–4 张图片，知识星球必须指定目标星球。预检完成后记录素材哈希，认领时重新核对，发生变化就停止。分类、原创、合集等未适配字段不应宣称已经填写。视频号发表后的作品结果尚未取得真实验证，若无平台作品证据必须报告结果不确定。
 
-公众号文章保存草稿使用 `type: ARTICLE`、`title`、`digest`、`htmlFile` 和 `cover`。`htmlFile` 是内容目录内的 HTML 正文文件，`cover` 是 PNG、JPEG 或 WebP 封面。调用时明确指定 `--action save_draft`；默认准备动作不会自动创建草稿。示例见 `../assets/weixin-article-smoke/`。当前不处理 HTML 内嵌的本地图片，正文需使用纯文本及基础 HTML；脚本和 iframe 会被拒绝。
+公众号文章保存草稿使用 `type: ARTICLE`、`title`、`digest`、`htmlFile` 和 `cover`。`htmlFile` 是内容目录内的 HTML 正文文件，`cover` 是 PNG、JPEG 或 WebP 封面。调用时明确指定 `--action save_draft`；默认准备动作不会自动创建草稿。仓库测试示例见 `tests/fixtures/article/weixin-draft/`（仓库根目录下，不随 Skill 安装）。当前不处理 HTML 内嵌的本地图片，正文需使用纯文本及基础 HTML；脚本和 iframe 会被拒绝。
 
-视频号视频准备使用 `type: VIDEO`、`title`、`content`（或 `bodyFile`）和 `video`。测试视频须为内容目录内不超过 100 MiB 的 MP4；调用时使用 `--action prepare --timeout 240`。示例见 `../assets/weixin-video-smoke/`。该适配正等待真实登录现场验收，未验证草稿保存或发表。
+视频号视频准备使用 `type: VIDEO`、`title`、`content`（或 `bodyFile`）和 `video`。测试视频须为内容目录内不超过 100 MiB 的 MP4；调用时使用 `--action prepare --timeout 240`。仓库测试示例见 `tests/fixtures/video/weixinchannel-prepare/`（仓库根目录下，不随 Skill 安装）。该适配正等待真实登录现场验收，未验证草稿保存或发表。
 
 四种类型的平台配置格式见 `../config/platforms.yaml`，其中 `actions` 指定各平台默认目标动作，`targets.DYNAMIC_ZSXQ` 指定知识星球的目标星球。内容包也可通过 `overrides.DYNAMIC_ZSXQ.targetSphere` 指定一次任务的目标。`plan-config` 与 `run-config` 会按配置顺序逐个平台预检／执行并返回独立任务 ID。本期九个平台的动态图文已分别取得真实页面回执；公众号文章及视频号视频不在默认配置。其他类型或动作明确报告尚未验证，后续逐类扩展。
