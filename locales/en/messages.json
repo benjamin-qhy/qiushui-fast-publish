@@ -1,15 +1,15 @@
 {
   "extensionName": {
-    "message": "MultiPost",
-    "description": "Multipost Extension"
+    "message": "FastPublish",
+    "description": "FastPublish extension name"
   },
   "extensionDisplayName": {
-    "message": "MultiPost",
-    "description": "Multipost Extension"
+    "message": "FastPublish",
+    "description": "FastPublish extension display name"
   },
   "extensionDescription": {
-    "message": "MultiPost is a tool to help you sync and publish content across multiple platforms.",
-    "description": "MultiPost is a tool to help you sync and publish content across multiple platforms."
+    "message": "FastPublish: Create once, publish easily across multiple social media platforms.",
+    "description": "FastPublish extension description"
   },
   "gDynamic": {
     "message": "Dynamic",
@@ -56,7 +56,7 @@
     "description": "Default nickname text"
   },
   "optionsTitle": {
-    "message": "Multipost",
+    "message": "FastPublish",
     "description": "Options page title"
   },
   "optionsViewDocs": {
@@ -180,8 +180,8 @@
     "description": "Sync button failed state text"
   },
   "optionsLogin2SOMEren": {
-    "message": "Please login to Multipost",
-    "description": "Login to Multipost prompt"
+    "message": "Please sign in to the upstream MultiPost service",
+    "description": "Upstream service sign-in prompt"
   },
   "optionsNotBoundBilibili": {
     "message": "Not Bound to Bilibili",
@@ -585,7 +585,16 @@
     "description": "Button text to clear all selected platforms"
   },
   "aboutDescription": {
-    "message": "MultiPost Extension helps you publish content to multiple platforms simultaneously, improving your content distribution efficiency."
+    "message": "Create once, publish easily across multiple social media platforms."
+  },
+  "localUsageTitle": {
+    "message": "How to use"
+  },
+  "localUsageDescription": {
+    "message": "Sign in to your target platforms, then pair this extension with the local service as described in the project guide. Submit content through the publishing assistant and check each platform result."
+  },
+  "localUsageHelp": {
+    "message": "Read the guide or report an issue"
   },
   "gAbout": {
     "message": "About"
@@ -600,7 +609,7 @@
     "message": "Trusted Domains"
   },
   "settingsTrustedDomainsDesc": {
-    "message": "Add trusted domains. Wildcard supported (e.g., *.multipost.app)"
+    "message": "Add trusted domains. Wildcard supported (e.g., *.example.com)"
   },
   "settingsAdd": {
     "message": "Add"
@@ -827,7 +836,7 @@
     "message": "Error processing request"
   },
   "popupLogoAlt": {
-    "message": "MultiPost Icon",
+    "message": "FastPublish Icon",
     "description": "Alt text for the logo image"
   },
   "popupLoadingMessage": {
@@ -980,7 +989,7 @@
     "message": "Save"
   },
   "linkExtensionTitle": {
-    "message": "Connect Extension to MultiPost.app",
+    "message": "Connect to the upstream MultiPost service",
     "description": "Link extension page title"
   },
   "linkExtensionReject": {
@@ -992,7 +1001,7 @@
     "description": "Allow connection button text"
   },
   "linkExtensionSuccess": {
-    "message": "Connected to MultiPost.app",
+    "message": "Connected to the upstream MultiPost service",
     "description": "Connection success message"
   },
   "linkExtensionRejected": {

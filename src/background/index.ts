@@ -35,10 +35,7 @@ async function initDefaultTrustedDomains() {
   }
 }
 
-chrome.runtime.onInstalled.addListener((object) => {
-  if (object.reason === chrome.runtime.OnInstalledReason.INSTALL) {
-    chrome.tabs.create({ url: "https://multipost.app/on-install" });
-  }
+chrome.runtime.onInstalled.addListener(() => {
   initDefaultTrustedDomains();
   chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: false });
 });

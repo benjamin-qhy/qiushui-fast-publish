@@ -102,7 +102,7 @@ const RefreshAccounts = () => {
   }, []);
 
   useEffect(() => {
-    document.title = `${chrome.i18n.getMessage("refreshAccountsTitle")} - MultiPost`;
+    document.title = `${chrome.i18n.getMessage("refreshAccountsTitle")} - ${chrome.i18n.getMessage("extensionDisplayName")}`;
     refreshAccounts();
   }, [refreshAccounts]);
 
@@ -119,13 +119,7 @@ const RefreshAccounts = () => {
           <div className="p-6 bg-white rounded-lg border border-gray-200 shadow-sm">
             <div className="flex flex-col justify-center items-center mb-8">
               <Image src={chrome.runtime.getURL("assets/icon.png")} alt="logo" className="mb-3 w-16 h-16 rounded-lg" />
-              <a
-                href="https://multipost.app"
-                target="_blank"
-                className="inline-flex items-center hover:text-blue-600"
-                rel="noreferrer">
-                <h1 className="text-2xl font-semibold">{chrome.i18n.getMessage("refreshAccountsTitle")}</h1>
-              </a>
+              <h1 className="text-2xl font-semibold">{chrome.i18n.getMessage("refreshAccountsTitle")}</h1>
             </div>
 
             {/* 刷新按钮和自动关闭设置 */}

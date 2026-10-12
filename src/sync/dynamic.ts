@@ -21,7 +21,6 @@ import { DynamicThreads } from "./dynamic/threads";
 import { DynamicToutiao } from "./dynamic/toutiao";
 import { DynamicToutiaohao } from "./dynamic/toutiaohao";
 import { DynamicV2EX } from "./dynamic/v2ex";
-import { DynamicWebhook } from "./dynamic/webhook";
 import { DynamicWeibo } from "./dynamic/weibo";
 import { DynamicWeixin } from "./dynamic/weixin";
 import { DynamicWeiXinChannel } from "./dynamic/weixinchannel";
@@ -301,17 +300,6 @@ export const DynamicInfoMap: Record<string, PlatformInfo> = {
     injectFunction: DynamicWeixin,
     tags: ["CN"],
     accountKey: "weixin",
-  },
-  DYNAMIC_WEBHOOK: {
-    type: "DYNAMIC",
-    name: "DYNAMIC_WEBHOOK",
-    homeUrl: "https://multipost.app/about/",
-    faviconUrl: "https://multipost.app/favicon.ico",
-    platformName: chrome.i18n.getMessage("platformWebhook"),
-    injectUrl: "https://multipost.app/about/",
-    injectFunction: DynamicWebhook,
-    tags: ["International"],
-    accountKey: "webhook",
   },
   DYNAMIC_ZSXQ: {
     type: "DYNAMIC",

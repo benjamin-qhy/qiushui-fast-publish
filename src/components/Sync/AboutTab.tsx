@@ -21,7 +21,7 @@ const AboutTab: React.FC = () => {
         <CardBody className="gap-4">
           <Button
             as={Link}
-            href="https://multipost.app/about"
+            href="https://github.com/benjamin-qhy/qiushui-fast-publish"
             target="_blank"
             rel="noopener noreferrer"
             variant="flat"

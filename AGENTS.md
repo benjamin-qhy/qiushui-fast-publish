@@ -4,7 +4,7 @@ This file provides guidance to coding agents working in this repository.
 
 ## Project Overview
 
-MultiPost is a browser extension that enables one-click content publishing to multiple social media platforms. Built with Plasmo framework, it supports 30+ platforms including Zhihu, Weibo, Xiaohongshu, Bilibili, X, Instagram, and more.
+FastPublish is a browser extension for publishing content to multiple social media platforms. Built with Plasmo, it includes integrations for Zhihu, Weibo, Xiaohongshu, Bilibili, X, Instagram, and more. Available actions vary by platform.
 
 ## Development Commands
 
@@ -100,16 +100,16 @@ Background script (`src/background/index.ts`) routes messages:
 
 ### Issue tracker
 
-任务和规格存放于 `benjamin-qhy/qiushui-content-publish` 的 GitHub Issues。
-使用 `gh` CLI，并显式指定 `--repo benjamin-qhy/qiushui-content-publish`，避免操作 `upstream` 仓库。
+任务和规格存放于 `benjamin-qhy/qiushui-fast-publish` 的 GitHub Issues。
+使用 `gh` CLI，并显式指定 `--repo benjamin-qhy/qiushui-fast-publish`，避免操作 `upstream` 仓库。
 
-- 创建：`gh issue create --repo benjamin-qhy/qiushui-content-publish --title "..." --body-file <文件>`
-- 读取：`gh issue view <编号> --repo benjamin-qhy/qiushui-content-publish --comments`
-- 列表：`gh issue list --repo benjamin-qhy/qiushui-content-publish --state open --json number,title,body,labels`
-- 评论：`gh issue comment <编号> --repo benjamin-qhy/qiushui-content-publish --body-file <文件>`
-- 添加标签：`gh issue edit <编号> --repo benjamin-qhy/qiushui-content-publish --add-label "..."`
-- 移除标签：`gh issue edit <编号> --repo benjamin-qhy/qiushui-content-publish --remove-label "..."`
-- 关闭：`gh issue close <编号> --repo benjamin-qhy/qiushui-content-publish --comment "..."`
+- 创建：`gh issue create --repo benjamin-qhy/qiushui-fast-publish --title "..." --body-file <文件>`
+- 读取：`gh issue view <编号> --repo benjamin-qhy/qiushui-fast-publish --comments`
+- 列表：`gh issue list --repo benjamin-qhy/qiushui-fast-publish --state open --json number,title,body,labels`
+- 评论：`gh issue comment <编号> --repo benjamin-qhy/qiushui-fast-publish --body-file <文件>`
+- 添加标签：`gh issue edit <编号> --repo benjamin-qhy/qiushui-fast-publish --add-label "..."`
+- 移除标签：`gh issue edit <编号> --repo benjamin-qhy/qiushui-fast-publish --remove-label "..."`
+- 关闭：`gh issue close <编号> --repo benjamin-qhy/qiushui-fast-publish --comment "..."`
 
 多行正文先写入临时文件，再通过 `--body-file` 提交。
 技能要求 “publish to the issue tracker” 时，创建 GitHub Issue；要求 “fetch the relevant ticket” 时，读取对应 Issue 及其评论。

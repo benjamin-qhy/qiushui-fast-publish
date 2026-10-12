@@ -1,7 +1,6 @@
 import {
   Accordion,
   AccordionItem,
-  Alert,
   Button,
   Card,
   CardBody,
@@ -9,9 +8,7 @@ import {
   CardHeader,
   Image,
   Input,
-  Link,
   Progress,
-  Spacer,
   Textarea,
 } from "@heroui/react";
 import { Icon } from "@iconify/react";
@@ -324,16 +321,6 @@ const ArticleTab: React.FC<ArticleTabProps> = ({ funcPublish, funcScraper }) => 
 
   return (
     <>
-      <Alert
-        title={chrome.i18n.getMessage("articleEditorAlertTitle")}
-        description={chrome.i18n.getMessage("articleEditorAlertDescription")}
-        endContent={
-          <Button as={Link} href="https://md.multipost.app" target="_blank">
-            {chrome.i18n.getMessage("articleEditorAlertButton")}
-          </Button>
-        }
-      />
-      <Spacer y={4} />
       <div className="flex flex-col gap-4 md:flex-row">
         <div className="flex flex-col gap-4 w-full md:w-1/2">
           <Card className="mb-4 shadow-none h-fit bg-default-50">

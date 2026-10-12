@@ -733,7 +733,7 @@ async function pollLocalTasks() {
     if (!response.ok) throw new Error(`LOCAL_POLL_HTTP: ${response.status}`);
     await execute((await response.json()) as Claim);
   } catch (error) {
-    console.debug("MultiPost local executor unavailable:", String(error));
+    console.debug("FastPublish local executor unavailable:", String(error));
   } finally {
     polling = false;
   }

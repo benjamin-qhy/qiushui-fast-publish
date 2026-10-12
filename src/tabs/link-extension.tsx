@@ -34,7 +34,7 @@ const LinkExtension = () => {
   const storage = new Storage({ area: "local" });
 
   useEffect(() => {
-    document.title = `${chrome.i18n.getMessage("optionsTitle")} - MultiPost`;
+    document.title = chrome.i18n.getMessage("extensionDisplayName");
     try {
       // 获取 hash 部分（移除开头的 #）
       const encodedParams = window.location.hash.substring(1);
@@ -109,13 +109,7 @@ const LinkExtension = () => {
           <div className="p-6 bg-white border border-gray-200 rounded-lg shadow-sm">
             <div className="flex flex-col items-center justify-center mb-8">
               <Image src={chrome.runtime.getURL("assets/icon.png")} alt="logo" className="w-16 h-16 mb-3 rounded-lg" />
-              <a
-                href="https://multipost.app"
-                target="_blank"
-                className="inline-flex items-center hover:text-blue-600"
-                rel="noreferrer">
-                <h1 className="text-2xl font-semibold">{chrome.i18n.getMessage("optionsTitle")}</h1>
-              </a>
+              <h1 className="text-2xl font-semibold">{chrome.i18n.getMessage("optionsTitle")}</h1>
             </div>
 
             <div className="flex items-center justify-center gap-3 mb-6 ju">

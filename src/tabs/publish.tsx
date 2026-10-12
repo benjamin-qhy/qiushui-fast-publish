@@ -736,7 +736,7 @@ export default function Publish() {
           <p className="text-xs text-gray-500">
             {chrome.i18n.getMessage("contactUsIfProblem")}
             <a
-              href="https://docs.multipost.app/docs/user-guide/contact-us"
+              href="https://github.com/benjamin-qhy/qiushui-fast-publish/issues"
               target="_blank"
               rel="noopener noreferrer"
               className="text-blue-500 underline hover:text-blue-600">

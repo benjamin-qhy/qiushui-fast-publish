@@ -1,61 +1,32 @@
-<div align="center">
-<img src="https://github.com/user-attachments/assets/b30c6c81-9c8b-4c78-a2df-9266b84b6f14" width="200" height="200" alt="MultiPost Logo" />
+# FastPublish
 
-# MultiPost
+**一份内容，轻松发布到多个自媒体平台。**
 
-![GitHub License GitHub许可证](https://img.shields.io/github/license/leaper-one/MultiPost-Extension) ![GitHub Repo stars GitHub星星](https://img.shields.io/github/stars/leaper-one/MultiPost-Extension) ![GitHub commit activity GitHub提交活动](https://img.shields.io/github/commit-activity/m/leaper-one/MultiPost-Extension) [![Website 网站](https://img.shields.io/website?url=https%3A%2F%2Fmultipost.app)](https://multipost.app) [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/leaperone/MultiPost-Extension)
+FastPublish 是一款浏览器扩展，帮助内容创作者将内容送达多个平台。支持动态、文章、视频和播客等内容类型；不同平台可用的内容类型和处理动作有所不同，以任务预检结果为准。
 
-[English](README.md) | [中文](docs/README-zh.md) | [日本語](docs/README-jp.md) | [Français](docs/README-fr.md) | [한국어](docs/README-kr.md)
+## 能做什么
 
-> A browser extension that helps users publish content to multiple social media platforms with one click.
-> 一个用于在多个社交平台上发布内容的浏览器扩展。
+- 为一份内容选择多个目标平台，减少重复填写。
+- 按平台处理标题、正文和媒体素材，并分别返回处理结果。
+- 区分已填写、草稿已确认、发布已确认和结果不确定，方便核对后续动作。
 
-⭐ If you find this project helpful, please consider giving it a star! Your support helps us grow and improve! ⭐
-</div>
+## 运行流程概览
 
-## Open-source snapshot / 开源部分
+**准备内容与平台配置 → 预检材料和目标动作 → 本机服务创建逐平台任务 → 浏览器扩展领取任务并操作平台页面 → 核对逐平台回执**
 
-This repository contains the Apache-2.0 open-source components of the MultiPost extension. The MultiPost monorepo builds and publishes the official Chrome and Edge packages, which also include the proprietary Agent module. This repository maintains source code only and does not run release workflows.
+首次使用需完成本机服务与扩展配对，并在目标平台登录。发布助手先检查内容、素材和平台配置；通过后，本机服务为每个平台创建独立任务。扩展在浏览器后台领取任务，打开对应平台的编辑页面，按已配置且获授权的目标动作准备内容、保存草稿或提交发布。
 
-本仓库维护 MultiPost 扩展的 Apache-2.0 开源部分。Chrome 和 Edge 商店中的 MultiPost 扩展由主仓库构建和发布，包含未在本仓库公开的 Agent 模块。本仓库只维护源码，不运行发布流水线。
+每个平台单独返回任务 ID 和实际结果。遇到登录、验证码或需要补充信息时，任务会停在“需要处理”；结果不确定时先核查原任务，不重复提交或点击发布。
 
-## 主要功能 / Key Features
-- 一键发布内容（文本、图片、视频等）到多个平台。（支持知乎、微博、小红书、抖音等10多个主流平台）无需登录、无需注册、无需API Key。完全免费！
-  Post your content (text, images, videos, etc.) to multiple platforms with one click. (Over 10 mainstream platforms including TikTok, YouTube Zhihu, Weibo, Xiaohongshu, TikTok, etc.) No login, no registration, no API Key required. Free!
-- 两种API接口 / 2 types of API Interface:
-  - 扩展API：在您自己的Web应用中调用扩展的API发布内容。
-    Extension API: Calling the extension's API to publish content in your own web app.
-  - RESTful API：在脚本或服务器中调用RESTful API发布内容。
-    RESTful API: Calling the RESTful API to publish content in your script or server.
+## 如何使用
 
-该扩展解决了内容创作者在多平台发布时的痛点。通过一次编辑，内容可以同步到所有平台，大大提高工作效率。
-This extension solves the pain points of content creators when publishing across multiple platforms. Through a single edit, content can be synchronized to all platforms, greatly improving work efficiency.
+1. 在浏览器中启用扩展，并登录需要使用的目标平台账号。
+2. 按照[本机安装与配对说明](skills/multipost-publish/references/setup.md)，完成一次性配对。
+3. 准备内容和目标平台配置，由[发布助手](skills/multipost-publish/SKILL.md)预检并提交任务。
+4. 查看每个平台的回执。遇到登录、验证码或结果不确定时，先处理或核查原任务，再决定下一步。
 
-## How to start
-- [multipost.app](https://multipost.app) - Official website
-- [Documentation | 文档](https://docs.multipost.app)
-- [Developer Documentation | 开发者文档](https://multipost.app/docs/development)
-- [MultiPost Article Editor](https://md.multipost.app/) - [(Repo)](https://github.com/leaperone/multipost-wechat-markdown-editor) - Online editor for creating and publishing content to multiple platforms.
-- [Chrome extension - ![Chrome Web Store Version Chrome网上商店版本](https://img.shields.io/chrome-web-store/v/dhohkaclnjgcikfoaacfgijgjgceofih)](https://chromewebstore.google.com/detail/multipost/dhohkaclnjgcikfoaacfgijgjgceofih) ![Chrome Web Store Users Chrome网上商店用户](https://img.shields.io/chrome-web-store/users/dhohkaclnjgcikfoaacfgijgjgceofih) ![Chrome Web Store Last Updated](https://img.shields.io/chrome-web-store/last-updated/dhohkaclnjgcikfoaacfgijgjgceofih)
-- [Edge extension - ![](https://img.shields.io/badge/dynamic/json?label=edge%20add-on&prefix=v&query=%24.version&url=https%3A%2F%2Fmicrosoftedge.microsoft.com%2Faddons%2Fgetproductdetailsbycrxid%2Fckoiphiceimehjkolnfffgbmihoppgjg)](https://microsoftedge.microsoft.com/addons/detail/multipost/ckoiphiceimehjkolnfffgbmihoppgjg) [![](https://img.shields.io/badge/dynamic/json?label=users&query=%24.activeInstallCount&url=https%3A%2F%2Fmicrosoftedge.microsoft.com%2Faddons%2Fgetproductdetailsbycrxid%2Fckoiphiceimehjkolnfffgbmihoppgjg)](https://microsoftedge.microsoft.com/addons/detail/multipost/ckoiphiceimehjkolnfffgbmihoppgjg)
-<!-- ![Edge add-on last updated](https://img.shields.io/badge/dynamic/json?label=last%20updated&query=%24.lastUpdateDate&url=https%3A%2F%2Fmicrosoftedge.microsoft.com%2Faddons%2Fgetproductdetailsbycrxid%2Fckoiphiceimehjkolnfffgbmihoppgjg) -->
+当前版本通过本机发布助手发起任务；点击扩展图标不会打开发布页面。平台编辑页已填写内容不等于已保存或已公开发布，请以平台回执为准。
 
-## Star History
+## 反馈
 
-[![Star History Chart](https://api.star-history.com/svg?repos=leaperone/multipost-wechat-markdown-editor,leaperone/MultiPost-Extension&type=Date)](https://www.star-history.com/#leaperone/multipost-wechat-markdown-editor&leaperone/MultiPost-Extension&Date)
-
-## Contact Us
-- [Discord](https://discord.gg/GNsCX9zFwQ)
-- 微信群
-  - 微信扫一扫加入 MultiPost 微信群
-    <img src="docs/multipost-wechat-group.jpg" width="350" alt="MultiPost WeChat Group QR Code" />
-- [点击加入腾讯频道【MultiPost】](https://pd.qq.com/s/ajj47bgjb) ，频道号：multipostapp
-- Email: [support@undersky.ai](mailto:support@undersky.ai)（UnderSky / Agent 模型账户；MultiPost 扩展问题请用 GitHub Issues）
-- [GitHub Issues](https://github.com/leaperone/MultiPost-Extension/issues)
-- 腾讯频道
-  - 微信扫一扫
-    <img src="https://github.com/user-attachments/assets/1044058f-036e-4942-af07-e4bd48a1e1d6" width="350" alt="MultiPost Tencent Channel Wechat" />
-  - QQ 扫一扫
-    <img src="https://github.com/user-attachments/assets/fc9edf3b-1ed5-4aa7-99f9-b39dcab3f449" width="350" alt="MultiPost Tencent Channel QQ" />
-
-# qiushui-content-publish
+使用中遇到问题，可在[项目 Issues](https://github.com/benjamin-qhy/qiushui-fast-publish/issues)反馈。

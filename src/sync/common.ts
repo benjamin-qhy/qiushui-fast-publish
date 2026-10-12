@@ -179,7 +179,7 @@ export async function createTabsForPlatforms(data: SyncData) {
             groupId = await chrome.tabs.group({ tabIds: [tab.id!] });
             await chrome.tabGroups.update(groupId, {
               color: "blue",
-              title: `MultiPost-${new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}`,
+              title: `FastPublish-${new Date().toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}`,
             });
           } else {
             // 将新标签页添加到现有组中
