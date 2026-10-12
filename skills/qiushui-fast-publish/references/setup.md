@@ -2,13 +2,45 @@
 
 运行前需要同一台电脑上的本机服务、已配对的 FastPublish 扩展及平台会话。浏览器由用户正常打开，Agent 无需浏览器或电脑控制工具。
 
-安装人员加载本项目的开发扩展 `build/chrome-mv3-dev`。开发更新使用 `pnpm dev --no-cs-reload`，验收前停止热更新以免平台编辑页丢失现场。本机服务通过 `python3 scripts/multipost.py serve` 启动。
+## 从仓库安装
 
-安装人员执行 `python3 scripts/multipost.py pair`，在安装 FastPublish 的浏览器打开返回的配对 URL，点击配对按钮。这是安装配置，日常任务不重复配对。凭证五分钟有效且仅可使用一次。配对后可关闭所有配对／桥接页；扩展后台通过 Chrome alarms 自动领取任务。
+以下命令在仓库根目录执行。本机 CLI 保持 Python 实现，Skill 名称为 `qiushui-fast-publish`。
+
+1. 执行 `pnpm install` 和 `pnpm dev --no-cs-reload`。在 Chrome 扩展管理页开启开发者模式，加载 `build/chrome-mv3-dev`。编译完成后，验收前停止热更新，以免平台编辑页丢失现场。
+2. 创建并激活 Python 虚拟环境（下列激活命令适用于 macOS/Linux），安装 YAML 依赖：
+
+   ```bash
+   python3 -m venv .venv
+   source .venv/bin/activate
+   python3 -m pip install -r skills/qiushui-fast-publish/scripts/requirements.txt
+   ```
+
+3. 在可持续运行的终端启动本机服务：
+
+   ```bash
+   python3 skills/qiushui-fast-publish/scripts/multipost.py serve
+   ```
+
+4. 在另一个终端进入仓库根目录并激活同一环境，执行配对：
+
+   ```bash
+   source .venv/bin/activate
+   python3 skills/qiushui-fast-publish/scripts/multipost.py pair
+   ```
+
+   在安装 FastPublish 的浏览器打开返回的配对 URL，点击配对按钮。这是安装配置，日常任务不重复配对。凭证五分钟有效且仅可使用一次。配对后可关闭配对／桥接页；扩展后台通过 Chrome alarms 自动领取任务。
+
+5. 查询连接状态：
+
+   ```bash
+   python3 skills/qiushui-fast-publish/scripts/multipost.py connection
+   ```
 
 `connection` 返回 `paired`、`online`、扩展 ID 和最近心跳时间。浏览器关闭、插件停用或本机服务不可达时，不会有新心跳；最近心跳超过 75 秒后判为离线，`run` 拒绝创建新任务并说明原因。在心跳尚未过期的窗口提交也可能等待超时，此时查询原任务，不重复提交。恢复浏览器后等待约 30 秒即可再次查询。
 
-将本 Skill 目录交给另一 Agent 系统时，保留 scripts、config、references 和所需素材。Agent 可调用同一个 CLI 或下面的本机 API；若 Skill 副本位置不同，设置 `MULTIPOST_STATE_DIR` 为已运行服务的私有状态目录。换电脑时重新安装服务、配对扩展并登录账号；这里的 localhost 指运行插件的电脑，不是远程 Agent 的电脑。
+## 跨 Agent 移植
+
+将 `skills/qiushui-fast-publish/` 作为完整 Skill 目录交给另一 Agent 系统时，保留 `SKILL.md`、`scripts/`、`config/`、`references/`。测试代码和素材位于仓库 `tests/`，不随 Skill 安装；用户内容包单独准备。移植后命令中的脚本路径应改为实际 Skill 目录。Agent 可调用同一个 CLI 或下面的本机 API；若 Skill 副本位置不同，设置 `MULTIPOST_STATE_DIR` 为已运行服务的私有状态目录绝对路径，并使用安装了 `scripts/requirements.txt` 依赖的 Python 环境。改名不迁移 `.multipost-local/`，也不改变现有配对凭证和任务格式。换电脑时重新安装服务、配对扩展并登录账号；这里的 localhost 指运行插件的电脑，不是远程 Agent 的电脑。
 
 ## 本机 API
 

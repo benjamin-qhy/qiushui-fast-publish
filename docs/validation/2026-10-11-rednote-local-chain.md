@@ -1,13 +1,15 @@
 # 小红书动态图文：当前电脑完整链路验收
 
+> 路径迁移说明（2026-10-12）：Skill 现位于 `skills/qiushui-fast-publish/`，测试素材按场景存放于 `tests/fixtures/`，测试命令为 `python3 -m unittest discover -s tests -p 'test_*.py'`。下文的历史命令和旧路径保留执行时记录，文档链接已指向现位置。
+
 > 此文保留早期桥接页路径的调试证据。当前 Skill 已改为插件后台自动领取，Agent 不操作浏览器；最新验收见[仅 CLI 的完整链路](2026-10-11-rednote-agent-only.md)。
 
 日期：2026-10-11（Asia/Shanghai）。本次目标动作是 `prepare`，验收范围为实际填写图文及可信结果回传。
 
 ## 实施内容
 
-- 项目内 Skill：[multipost-publish](../../skills/multipost-publish/SKILL.md)，默认按类型读取 Skill 内的[平台配置](../../skills/multipost-publish/config/platforms.yaml)。当前仅开放 `DYNAMIC_REDNOTE` 的图文准备。
-- [本机脚本](../../skills/multipost-publish/scripts/multipost.py)读取 `content.yaml`／`content.json`，检查正文、图片、平台子集和字段覆盖；本机 HTTP 桥接仅监听 `127.0.0.1:2663`。任务认领使用一次性凭证，素材先核对哈希，再转成任务内数据 URL。
+- 项目内 Skill：[qiushui-fast-publish](../../skills/qiushui-fast-publish/SKILL.md)，默认按类型读取 Skill 内的[平台配置](../../skills/qiushui-fast-publish/config/platforms.yaml)。当前仅开放 `DYNAMIC_REDNOTE` 的图文准备。
+- [本机脚本](../../skills/qiushui-fast-publish/scripts/multipost.py)读取 `content.yaml`／`content.json`，检查正文、图片、平台子集和字段覆盖；本机 HTTP 桥接仅监听 `127.0.0.1:2663`。任务认领使用一次性凭证，素材先核对哈希，再转成任务内数据 URL。
 - 扩展[本机任务服务](../../src/background/services/local-task.ts)校验精确调用来源、打开平台页面、等待加载并收集注入函数结果；回执在扩展本地存储和项目 `.multipost-local/tasks/` 中持久保存。
 - [小红书准备适配](../../src/sync/dynamic/rednote-prepare.ts)沿用现有图文上传与填写流程，增加有界等待和真实字段核对。上传输入框的 files 不作为完成证据；检查实际编辑器中的图片预览、标题及正文。
 - 中断后恢复同一任务，核查原标签页；已上传图片数量匹配且标题、正文均为空时只补填空字段。已有内容不匹配、原页关闭或图片丢失时报告结果不确定，避免重复上传或覆盖。

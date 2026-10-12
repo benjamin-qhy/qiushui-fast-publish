@@ -1,10 +1,12 @@
 # 微信公众号文章草稿：本机插件真实验证
 
+> 路径迁移说明（2026-10-12）：Skill 现位于 `skills/qiushui-fast-publish/`，测试素材按场景存放于 `tests/fixtures/`，测试命令为 `python3 -m unittest discover -s tests -p 'test_*.py'`。下文的历史命令和旧路径保留执行时记录，文档链接已指向现位置。
+
 日期：2026-10-11。用户先在当前 Chrome 中登录微信公众号后台。测试动作明确指定 `save_draft`，未执行公众号公开群发。
 
 ## 输入与执行
 
-- 内容包：[weixin-article-smoke](../../skills/multipost-publish/assets/weixin-article-smoke/content.yaml)，包含 HTML 正文与封面图片。
+- 内容包：[weixin-article-smoke](../../tests/fixtures/article/weixin-draft/content.yaml)，包含 HTML 正文与封面图片。
 - Agent 仅运行 `python3 skills/multipost-publish/scripts/multipost.py run skills/multipost-publish/assets/weixin-article-smoke --action save_draft --timeout 130`。
 - MultiPost 扩展后台自动领取任务，打开公众号后台，上传封面、创建文章草稿并打开平台返回的编辑页。
 - 任务 ID：`385fbcdd-acbb-4353-9b78-6ccccfb36655`；插件标签页 ID：`875191484`。
