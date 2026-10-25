@@ -1,4 +1,10 @@
 {
+  "localTask_ACCOUNT_MISMATCH": {
+    "message": "当前登录账号与目标账号不一致，请切换账号后继续。"
+  },
+  "localTask_ACCOUNT_UNVERIFIED": {
+    "message": "无法核实当前登录账号，任务已暂停。"
+  },
   "extensionName": {
     "message": "FastPublish",
     "description": "FastPublish 扩展名称"

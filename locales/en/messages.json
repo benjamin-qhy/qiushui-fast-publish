@@ -1,4 +1,10 @@
 {
+  "localTask_ACCOUNT_MISMATCH": {
+    "message": "The signed-in account does not match the target account."
+  },
+  "localTask_ACCOUNT_UNVERIFIED": {
+    "message": "The current account could not be verified. The task is paused."
+  },
   "extensionName": {
     "message": "FastPublish",
     "description": "FastPublish extension name"

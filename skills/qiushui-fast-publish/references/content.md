@@ -32,3 +32,5 @@ images: []
 视频号视频准备使用 `type: VIDEO`、`title`、`content`（或 `bodyFile`）和 `video`。测试视频须为内容目录内不超过 100 MiB 的 MP4；调用时使用 `--action prepare --timeout 240`。仓库测试示例见 `tests/fixtures/video/weixinchannel-prepare/`（仓库根目录下，不随 Skill 安装）。该适配正等待真实登录现场验收，未验证草稿保存或发表。
 
 四种类型的平台配置格式见 `../config/platforms.yaml`，其中 `actions` 指定各平台默认目标动作，`targets.DYNAMIC_ZSXQ` 指定知识星球的目标星球。内容包也可通过 `overrides.DYNAMIC_ZSXQ.targetSphere` 指定一次任务的目标。`plan-config` 与 `run-config` 会按配置顺序逐个平台预检／执行并返回独立任务 ID。本期九个平台的动态图文已分别取得真实页面回执；公众号文章及视频号视频不在默认配置。其他类型或动作明确报告尚未验证，后续逐类扩展。
+
+员工管理账号时，小红书图文可附 expectedAccountId，值是稳定平台账号ID；插件实时核对，不依赖昵称或旧账号缓存。该字段目前仅用于小红书。

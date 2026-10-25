@@ -23,6 +23,7 @@ export interface SyncData {
 }
 
 export interface DynamicData {
+  expectedAccountId?: string;
   title: string;
   content: string;
   images: FileData[];

@@ -12,12 +12,23 @@ const button = document.querySelector('#pair');
 button.onclick = () => {
   button.disabled = true;
   const traceId = crypto.randomUUID();
-  const timer = setTimeout(() => { document.querySelector('#result').textContent = '未收到插件响应，请确认已加载支持本机执行器的开发版。'; }, 8000);
-  window.addEventListener('message', function listener(event) {
-    if (event.source !== window || event.origin !== location.origin || event.data?.type !== 'response' || event.data.traceId !== traceId) return;
+  let lastFailure = '';
+  function listener(event) {
+    if (event.source !== window || event.origin !== location.origin || event.data?.type !== 'response' || event.data.traceId !== traceId || event.data.action !== 'MULTIPOST_EXTENSION_LOCAL_PAIR') return;
+    // A legacy MultiPost extension may reject the same broadcast before FastPublish responds.
+    if (event.data.code !== 0 || event.data.data?.paired !== true) {
+      lastFailure = event.data.message || event.data.data?.error || '插件尚未完成配对';
+      return;
+    }
     clearTimeout(timer); window.removeEventListener('message', listener);
-    document.querySelector('#result').textContent = JSON.stringify(event.data.data || event.data, null, 2);
-  });
+    document.querySelector('#result').textContent = '配对成功\n' + JSON.stringify(event.data.data, null, 2);
+  }
+  const timer = setTimeout(() => {
+    window.removeEventListener('message', listener);
+    button.disabled = false;
+    document.querySelector('#result').textContent = '未收到 FastPublish 配对成功响应，请确认已加载支持本机执行器的开发版。' + (lastFailure ? '\n' + lastFailure : '');
+  }, 8000);
+  window.addEventListener('message', listener);
   window.postMessage({type:'request', action:'MULTIPOST_EXTENSION_LOCAL_PAIR', traceId, data:{token:location.hash.slice(1)}}, location.origin);
 };
 </script>

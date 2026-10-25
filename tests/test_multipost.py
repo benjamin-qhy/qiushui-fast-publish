@@ -45,6 +45,15 @@ class PreflightTest(unittest.TestCase):
         self.assertEqual(plan['data']['title'], '覆盖标题')
         self.assertEqual(len(plan['data']['images'][0]['sha256']), 64)
 
+    def test_expected_account_survives_preflight_and_invalid_id_is_rejected(self):
+        self.metadata['expectedAccountId'] = 'stable_account'
+        self.write()
+        self.assertEqual(self.plan()['data']['expectedAccountId'], 'stable_account')
+        self.metadata['expectedAccountId'] = ' '
+        self.write()
+        with self.assertRaisesRegex(ValueError, 'expectedAccountId'):
+            self.plan()
+
     def test_missing_image_stops_before_bridge(self):
         (self.folder / 'test-card.png').unlink()
         with self.assertRaisesRegex(ValueError, '文件不存在'):
@@ -253,6 +262,37 @@ class AutomaticDeliveryTest(unittest.TestCase):
 
     def submit(self):
         return self.call('/submit', {'folder': str(self.folder), 'platforms': 'DYNAMIC_REDNOTE'}, admin=True)[1]
+
+    def test_submit_key_recovers_same_task_and_rejects_changed_material(self):
+        import uuid
+        body = {'folder': str(self.folder), 'platforms': 'DYNAMIC_REDNOTE', 'idempotencyKey': str(uuid.uuid4())}
+        first = self.call('/submit', body, admin=True)
+        second = self.call('/submit', body, admin=True)
+        self.assertEqual(first[0], 200)
+        self.assertEqual(first[1]['taskId'], second[1]['taskId'])
+        self.assertEqual(len(list((module.STATE / 'tasks').glob('*.json'))), 1)
+        metadata = module.read_metadata(self.folder / 'content.yaml')
+        metadata['title'] = '已经改稿'
+        (self.folder / 'content.yaml').unlink()
+        (self.folder / 'content.json').write_text(json.dumps(metadata))
+        self.assertEqual(self.call('/submit', body, admin=True)[0], 400)
+
+    def test_collection_requires_published_work_and_is_read_only(self):
+        import uuid
+        source = self.submit()
+        body = {'taskId': source['taskId'], 'idempotencyKey': str(uuid.uuid4())}
+        self.assertEqual(self.call('/collect', body, admin=True)[0], 400)
+        task = module.load_task(module.task_path(source['taskId']))
+        task['receipt'] = {'status': 'published', 'evidence': {'noteId': 'a' * 24}}
+        module.atomic(module.task_path(source['taskId']), task)
+        first = self.call('/collect', body, admin=True)
+        second = self.call('/collect', body, admin=True)
+        self.assertEqual(first[0], 200)
+        self.assertEqual(first[1]['taskId'], second[1]['taskId'])
+        claim = self.call('/next', executor=True)[1]
+        self.assertEqual(claim['operation'], 'collect')
+        self.assertEqual(claim['data']['noteId'], 'a' * 24)
+        self.assertEqual(claim['data']['images'], [])
 
     def test_background_poll_claims_once_without_bridge_page(self):
         task = self.submit()

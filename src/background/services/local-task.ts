@@ -1,9 +1,11 @@
+import { getRednoteAccountInfo } from "~sync/account/rednote";
 import { ArticleWeixin } from "~sync/article/weixin";
 import type { ArticleData, DynamicData, SyncData, VideoData } from "~sync/common";
 import { prepareDynamicDouyin } from "~sync/dynamic/douyin-prepare";
 import { prepareDynamicMaimai } from "~sync/dynamic/maimai-prepare";
 import { DynamicOkjike } from "~sync/dynamic/okjike";
 import { publishPreparedDynamic, verifyDouyinProfile } from "~sync/dynamic/publish-prepared";
+import { collectRednoteMetrics } from "~sync/dynamic/rednote-metrics";
 import { type RednotePrepareResult, prepareDynamicRednote } from "~sync/dynamic/rednote-prepare";
 import { type KnownEditorContent, prepareDynamicToutiao } from "~sync/dynamic/toutiao-prepare";
 import { DynamicWeixin } from "~sync/dynamic/weixin";
@@ -33,7 +35,7 @@ interface Claim {
   platform: string;
   data: DynamicData | ArticleData | VideoData;
   callbackToken: string;
-  operation: "start" | "resume" | "publish" | "reconcile";
+  operation: "start" | "resume" | "publish" | "reconcile" | "collect" | "account";
   sourceTaskId?: string;
   sourceTabId?: number;
   preparedEvidence?: Record<string, unknown>;
@@ -85,6 +87,76 @@ async function execute(claim: Claim) {
     status: "running",
   };
   try {
+    if (
+      claim.operation === "resume" &&
+      claim.action === "prepare" &&
+      ["ACCOUNT_MISMATCH", "ACCOUNT_UNVERIFIED"].includes(stored?.code || "") &&
+      !stored?.tabId
+    ) {
+      // The account gate stopped before creating a tab or touching the editor.
+      claim.operation = "start";
+    }
+    // Read the current session, never an account cache. Reconciliation remains read-only.
+    const expectedAccountId = (claim.data as DynamicData).expectedAccountId;
+    if (expectedAccountId && claim.operation !== "reconcile") {
+      let actualAccountId: string | undefined;
+      try {
+        actualAccountId = claim.platform === "DYNAMIC_REDNOTE" ? (await getRednoteAccountInfo())?.accountId : undefined;
+      } catch {
+        // Missing evidence must pause before any editor mutation or public submission.
+      }
+      if (actualAccountId !== expectedAccountId) {
+        await saveResult(claim, {
+          ...receipt,
+          status: "needs_attention",
+          code: actualAccountId ? "ACCOUNT_MISMATCH" : "ACCOUNT_UNVERIFIED",
+          evidence: { expectedAccountId, actualAccountId: actualAccountId || null, checkedAt: Date.now() },
+        });
+        return;
+      }
+    }
+    if (claim.operation === "account") {
+      const account = claim.platform === "DYNAMIC_REDNOTE" ? await getRednoteAccountInfo() : null;
+      await saveResult(claim, {
+        ...receipt,
+        status: account?.accountId ? "account_verified" : "needs_attention",
+        code: account?.accountId ? "ACCOUNT_READ_ONLY" : "ACCOUNT_UNVERIFIED",
+        evidence: {
+          accountId: account?.accountId || null,
+          username: account?.username || null,
+          profileUrl: account?.profileUrl || null,
+          checkedAt: new Date().toISOString(),
+        },
+      });
+      return;
+    }
+    if (claim.operation === "collect") {
+      const noteId = (claim.data as DynamicData & { noteId?: string }).noteId;
+      if (claim.platform !== "DYNAMIC_REDNOTE" || !noteId || !/^[a-f0-9]{24}$/i.test(noteId))
+        throw new Error("METRICS_WORK_ID_REQUIRED");
+      const tab = await chrome.tabs.create({ url: "https://creator.xiaohongshu.com/new/note-manager", active: false });
+      if (!tab.id) throw new Error("TAB_CREATE_FAILED");
+      receipt = { ...receipt, tabId: tab.id };
+      await loaded(tab.id);
+      let result: Awaited<ReturnType<typeof collectRednoteMetrics>> | undefined;
+      for (let attempt = 0; attempt < 10; attempt += 1) {
+        result = (
+          await chrome.scripting.executeScript({
+            target: { tabId: tab.id },
+            func: collectRednoteMetrics,
+            args: [noteId],
+          })
+        )[0]?.result;
+        if (result?.status === "metrics_collected") break;
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+      await saveResult(claim, {
+        ...receipt,
+        ...(result || { status: "needs_attention", code: "METRICS_UNAVAILABLE" }),
+      });
+      if (result?.status === "metrics_collected") await chrome.tabs.remove(tab.id).catch(() => undefined);
+      return;
+    }
     if (claim.operation === "publish" || claim.operation === "reconcile") {
       if (claim.action !== "publish" || !claim.sourceTaskId || !claim.sourceTabId) {
         await saveResult(claim, { ...receipt, status: "failed", code: "INVALID_PUBLISH_SOURCE" });
@@ -138,6 +210,15 @@ async function execute(claim: Claim) {
         try {
           if (claim.platform === "DYNAMIC_REDNOTE") {
             const current = await chrome.tabs.get(claim.sourceTabId);
+            // Manager lists are snapshots: a post may become visible after the
+            // initial navigation. Refresh only the read-only result page.
+            if (
+              current.url?.includes("/new/note-manager") &&
+              ((claim.operation === "reconcile" && attempt === 0) || (attempt > 0 && attempt % 5 === 0))
+            ) {
+              await chrome.tabs.reload(claim.sourceTabId);
+              await loaded(claim.sourceTabId);
+            }
             if (
               current.url?.includes("/publish/publish?") &&
               new URL(current.url).searchParams.get("published") === "true"

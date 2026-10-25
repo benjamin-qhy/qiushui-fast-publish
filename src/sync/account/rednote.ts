@@ -1,6 +1,66 @@
 import type { AccountInfo } from "~sync/common";
 
 export async function getRednoteAccountInfo(): Promise<AccountInfo> {
+  // Creator login can remain valid while the consumer site requires a fresh login.
+  try {
+    const tabs = await chrome.tabs.query({ url: "https://creator.xiaohongshu.com/*" });
+    let result: {
+      code?: number;
+      success?: boolean;
+      data?: { userId?: string; userName?: string; userDesc?: string; userAvatar?: string };
+    };
+    if (tabs[0]?.id) {
+      result =
+        (
+          await chrome.scripting.executeScript({
+            target: { tabId: tabs[0].id },
+            func: async () => {
+              const response = await fetch("/api/galaxy/user/info", { credentials: "include" });
+              if (!response.ok) return {};
+              const payload = await response.json();
+              const user = payload?.data;
+              return {
+                code: payload?.code,
+                success: payload?.success,
+                data: user
+                  ? {
+                      userId: user.userId,
+                      userName: user.userName,
+                      userDesc: user.userDesc,
+                      userAvatar: user.userAvatar,
+                    }
+                  : undefined,
+              };
+            },
+          })
+        )[0]?.result || {};
+    } else {
+      const response = await fetch("https://creator.xiaohongshu.com/api/galaxy/user/info", { credentials: "include" });
+      result = response.ok ? await response.json() : {};
+    }
+    {
+      const user = result?.data;
+      if (
+        result?.code === 0 &&
+        result?.success === true &&
+        typeof user?.userId === "string" &&
+        /^[a-f0-9]{24}$/i.test(user.userId)
+      ) {
+        return {
+          provider: "rednote",
+          accountId: user.userId,
+          username: user.userName || "",
+          description: user.userDesc,
+          avatarUrl: user.userAvatar,
+          profileUrl: `https://www.xiaohongshu.com/user/profile/${user.userId}`,
+          extraData: { source: "creator", checkedAt: new Date().toISOString() },
+        };
+      }
+    }
+  } catch {
+    // Preserve the consumer-site fallback for accounts without creator access.
+  }
+
   // 直接使用fetch API获取小红书页面HTML
   const response = await fetch("https://www.xiaohongshu.com/explore");
 

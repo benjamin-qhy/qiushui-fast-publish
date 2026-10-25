@@ -21,7 +21,7 @@ ROOT = Path(__file__).resolve().parents[3]
 STATE = Path(os.environ.get('MULTIPOST_STATE_DIR', str(ROOT / '.multipost-local'))).resolve()
 ORIGIN = 'http://localhost:2663'
 DEFAULT_CONFIG = Path(__file__).resolve().parents[1] / 'config/platforms.yaml'
-TERMINAL = {'filled', 'draft_saved', 'published', 'submitted_pending_review', 'needs_attention', 'failed', 'result_unconfirmed', 'unsupported', 'unverified'}
+TERMINAL = {'account_verified', 'metrics_collected', 'filled', 'draft_saved', 'published', 'submitted_pending_review', 'needs_attention', 'failed', 'result_unconfirmed', 'unsupported', 'unverified'}
 LOCK = threading.Lock()
 TEXT_CANDIDATES = {'DYNAMIC_TOUTIAO', 'DYNAMIC_OKJIKE', 'DYNAMIC_ZSXQ', 'DYNAMIC_MAIMAI', 'DYNAMIC_X'}
 
@@ -374,7 +374,7 @@ def preflight(folder, config, action, subset):
     if action != 'prepare':
         raise ValueError('小红书自动暂存／直接发布尚未验证；首版仅执行 prepare，不降级目标动作')
     effective = {**content, **overrides.get('DYNAMIC_REDNOTE', {})}
-    unsupported = set(effective) - {'type', 'title', 'content', 'bodyFile', 'tags', 'images', 'videos', 'overrides'}
+    unsupported = set(effective) - {'type', 'title', 'content', 'bodyFile', 'tags', 'images', 'videos', 'overrides', 'expectedAccountId'}
     if unsupported:
         raise ValueError('首版尚未适配这些字段：' + ', '.join(sorted(unsupported)))
     if effective.get('type') != kind:
@@ -394,8 +394,11 @@ def preflight(folder, config, action, subset):
     image_paths = effective.get('images', [])
     if not isinstance(image_paths, list) or not 1 <= len(image_paths) <= 18 or effective.get('videos'):
         raise ValueError('动态图文须包含 1–18 张图片，首版不接受视频')
+    account_id = effective.get('expectedAccountId')
+    if account_id is not None and (not isinstance(account_id, str) or not re.fullmatch(r'[A-Za-z0-9_-]{1,100}', account_id)):
+        raise ValueError('expectedAccountId 必须是已登记的平台稳定账号ID')
     images = [media_file(folder, name) for name in image_paths]
-    return {'platform': platforms[0], 'action': action, 'data': {'title': title, 'content': body, 'tags': tags, 'images': images, 'videos': []}}
+    return {'platform': platforms[0], 'action': action, 'data': {'title': title, 'content': body, 'tags': tags, 'images': images, 'videos': [], **({'expectedAccountId': account_id} if account_id else {})}}
 
 
 def configured_plans(folder, config, subset):
@@ -491,7 +494,7 @@ def bridge_url(task):
 
 
 def claim_task(task):
-    if task.get('operation') in ['publish', 'reconcile']:
+    if task.get('operation') in ['publish', 'reconcile', 'collect', 'account']:
         task['claimed'] = True
         task['receipt'] = {**task['receipt'], 'status': 'claimed'}
         task['updatedAt'] = time.time()
@@ -636,8 +639,59 @@ class Handler(BaseHTTPRequestHandler):
                     plan = preflight(body['folder'], body.get('config', str(DEFAULT_CONFIG)), body.get('action', 'prepare'), body.get('platforms'))
                     if plan['action'] == 'publish':
                         raise ValueError('直接发布须由 run 或 run-config 先创建已填写任务，再关联 publish 任务')
-                    task_id = str(uuid.uuid4())
+                    # A caller can persist this key before dispatch, then safely recover a lost response.
+                    task_id = str(uuid.UUID(body['idempotencyKey'])) if body.get('idempotencyKey') else str(uuid.uuid4())
+                    if task_path(task_id).exists():
+                        previous = load_task(task_path(task_id))
+                        if any(previous.get(key) != plan[key] for key in ['platform', 'action', 'data']):
+                            raise ValueError('幂等键已用于不同内容，保留原任务核查')
+                        return self.reply(200, public(previous))
                     task = {**plan, 'taskId': task_id, 'createdAt': time.time(), 'updatedAt': time.time(), 'claimToken': secrets.token_urlsafe(32), 'callbackToken': secrets.token_urlsafe(32), 'claimed': False, 'delivery': 'automatic', 'operation': 'start', 'expiresAt': time.time() + 900, 'receipt': {'status': 'queued'}}
+                    atomic(task_path(task_id), task)
+                    return self.reply(200, public(task))
+                if self.path == '/metrics':
+                    self.admin()
+                    note_id = body.get('noteId', '')
+                    account_id = body.get('expectedAccountId', '')
+                    if not re.fullmatch(r'[a-fA-F0-9]{24}', note_id) or not re.fullmatch(r'[a-fA-F0-9]{24}', account_id):
+                        raise ValueError('既有作品数据回收需要真实作品ID和目标账号ID')
+                    task_id = str(uuid.uuid4())
+                    task = {'taskId': task_id, 'platform': 'DYNAMIC_REDNOTE', 'action': 'collect',
+                            'data': {'title': '', 'content': '', 'images': [], 'videos': [], 'noteId': note_id, 'expectedAccountId': account_id},
+                            'operation': 'collect', 'createdAt': time.time(), 'updatedAt': time.time(),
+                            'claimToken': secrets.token_urlsafe(32), 'callbackToken': secrets.token_urlsafe(32),
+                            'claimed': False, 'delivery': 'automatic', 'expiresAt': time.time() + 900, 'receipt': {'status': 'queued'}}
+                    atomic(task_path(task_id), task)
+                    return self.reply(200, public(task))
+                if self.path == '/account':
+                    self.admin()
+                    if body.get('platform') != 'DYNAMIC_REDNOTE':
+                        raise ValueError('当前账号实时核对只支持小红书')
+                    task_id = str(uuid.uuid4())
+                    task = {'taskId': task_id, 'platform': 'DYNAMIC_REDNOTE', 'action': 'account',
+                            'data': {'title': '', 'content': '', 'images': [], 'videos': []},
+                            'operation': 'account', 'createdAt': time.time(), 'updatedAt': time.time(),
+                            'claimToken': secrets.token_urlsafe(32), 'callbackToken': secrets.token_urlsafe(32),
+                            'claimed': False, 'delivery': 'automatic', 'expiresAt': time.time() + 900, 'receipt': {'status': 'queued'}}
+                    atomic(task_path(task_id), task)
+                    return self.reply(200, public(task))
+                if self.path == '/collect':
+                    self.admin()
+                    source = load_task(task_path(body['taskId']))
+                    note_id = source['receipt'].get('evidence', {}).get('noteId', '')
+                    if source['platform'] != 'DYNAMIC_REDNOTE' or source['receipt']['status'] != 'published' or not re.fullmatch(r'[a-fA-F0-9]{24}', note_id):
+                        raise ValueError('数据回收需要已确认发布的小红书原任务和作品ID')
+                    task_id = str(uuid.UUID(body['idempotencyKey'])) if body.get('idempotencyKey') else str(uuid.uuid4())
+                    if task_path(task_id).exists():
+                        previous = load_task(task_path(task_id))
+                        if previous.get('operation') != 'collect' or previous.get('sourceTaskId') != source['taskId']:
+                            raise ValueError('幂等键对应其他任务')
+                        return self.reply(200, public(previous))
+                    task = {'taskId': task_id, 'platform': source['platform'], 'action': 'collect',
+                            'data': {**source['data'], 'images': [], 'noteId': note_id}, 'sourceTaskId': source['taskId'],
+                            'operation': 'collect', 'createdAt': time.time(), 'updatedAt': time.time(),
+                            'claimToken': secrets.token_urlsafe(32), 'callbackToken': secrets.token_urlsafe(32),
+                            'claimed': False, 'delivery': 'automatic', 'expiresAt': time.time() + 900, 'receipt': {'status': 'queued'}}
                     atomic(task_path(task_id), task)
                     return self.reply(200, public(task))
                 if self.path == '/publish':
@@ -667,7 +721,7 @@ class Handler(BaseHTTPRequestHandler):
                     self.admin()
                     if task.get('operation') != 'publish' or task['action'] != 'publish':
                         raise ValueError('仅能恢复原公开发布任务')
-                    before_click = task['receipt']['status'] == 'needs_attention' and task['receipt'].get('code') in ['PUBLISH_CONTROL_NOT_READY', 'PREPARED_CONTENT_CHANGED', 'PREPARED_MEDIA_CHANGED']
+                    before_click = task['receipt']['status'] == 'needs_attention' and task['receipt'].get('code') in ['PUBLISH_CONTROL_NOT_READY', 'PREPARED_CONTENT_CHANGED', 'PREPARED_MEDIA_CHANGED', 'ACCOUNT_MISMATCH', 'ACCOUNT_UNVERIFIED']
                     evidence = task['receipt'].get('evidence', {})
                     proven_rednote_host_noop = (
                         body.get('repairRednoteHostNoop') is True and task['platform'] == 'DYNAMIC_REDNOTE' and
