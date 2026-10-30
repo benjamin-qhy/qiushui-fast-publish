@@ -11,6 +11,7 @@ interface CropedImage {
   height: number;
   width: number;
   ratio?: string;
+  cropConfig?: CropConfig;
 }
 
 interface CropConfig {
@@ -314,7 +315,7 @@ export async function ArticleWeixin(data: SyncData, localTask = false) {
     formData.append("only_fans_can_comment0", "0");
 
     // 封面图片配置
-    const defaultImage = cropedImages.find((img) => img.ratio === "2.35:1" || img.ratio === "1:1")?.url || "";
+    const defaultImage = cropedImages.find((img) => img.ratio === "2.35:1")?.url || "";
     formData.append("cdn_url0", defaultImage);
     formData.append("cdn_235_1_url0", defaultImage);
     formData.append("cdn_16_9_url0", cropedImages.find((img) => img.ratio === "16:9")?.url || "");
@@ -323,59 +324,22 @@ export async function ArticleWeixin(data: SyncData, localTask = false) {
     formData.append("cdn_url_back0", cropedImages.find((img) => img.ratio === "1:1")?.url || "");
 
     // 裁剪配置
-    const cropList = [
-      {
-        ratio: "16_9",
-        x1: 0,
-        y1: 453,
-        x2: 1178,
-        y2: 1116,
-        file_id: cropedImages.find((img) => img.ratio === "16:9")?.fileId,
-      },
-      {
-        ratio: "1_1",
-        x1: 0,
-        y1: 195,
-        x2: 1178,
-        y2: 1374,
-        file_id: cropedImages.find((img) => img.ratio === "1:1")?.fileId,
-      },
-      {
-        ratio: "3_4",
-        x1: 0,
-        y1: 0,
-        x2: 1177,
-        y2: 1570,
-        file_id: cropedImages.find((img) => img.ratio === "3:4")?.fileId,
-      },
-    ];
-
-    const cropListPercent = [
-      {
-        ratio: "16_9",
-        x1: 0,
-        y1: 0.28897292993630574,
-        x2: 1,
-        y2: 0.7110270700636943,
-        file_id: cropedImages.find((img) => img.ratio === "16:9")?.fileId,
-      },
-      {
-        ratio: "1_1",
-        x1: 0,
-        y1: 0.12484076433121016,
-        x2: 1,
-        y2: 0.8751592356687898,
-        file_id: cropedImages.find((img) => img.ratio === "1:1")?.fileId,
-      },
-      {
-        ratio: "3_4",
-        x1: 21222410865878727e-20,
-        y1: 0,
-        x2: 0.9997877758913412,
-        y2: 1,
-        file_id: cropedImages.find((img) => img.ratio === "3:4")?.fileId,
-      },
-    ];
+    const cropList = cropedImages.map((image) => ({
+      ratio: image.ratio!.replace(":", "_"),
+      x1: image.cropConfig!.x1_abs,
+      y1: image.cropConfig!.y1_abs,
+      x2: image.cropConfig!.x2_abs,
+      y2: image.cropConfig!.y2_abs,
+      file_id: image.fileId,
+    }));
+    const cropListPercent = cropedImages.map((image) => ({
+      ratio: image.ratio!.replace(":", "_"),
+      x1: image.cropConfig!.x1,
+      y1: image.cropConfig!.y1,
+      x2: image.cropConfig!.x2,
+      y2: image.cropConfig!.y2,
+      file_id: image.fileId,
+    }));
 
     formData.append(
       "crop_list0",
@@ -544,7 +508,7 @@ export async function ArticleWeixin(data: SyncData, localTask = false) {
     }
 
     // 裁剪封面图片
-    const ratios = [16 / 9, 1, 3 / 4];
+    const ratios = [2.35, 16 / 9, 1, 3 / 4];
     const cropConfigs = ratios.map((ratio) => calculateCropConfig(ratio, width, height));
 
     const cropedImages = await cropImage(uploadResult, cropConfigs);
@@ -554,7 +518,8 @@ export async function ArticleWeixin(data: SyncData, localTask = false) {
 
     // 为裁剪后的图片添加比例信息
     cropedImages.forEach((img, index) => {
-      img.ratio = ["16:9", "1:1", "3:4"][index];
+      img.ratio = ["2.35:1", "16:9", "1:1", "3:4"][index];
+      img.cropConfig = cropConfigs[index];
     });
 
     // 创建文章

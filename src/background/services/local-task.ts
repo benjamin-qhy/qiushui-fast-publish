@@ -12,7 +12,10 @@ import { DynamicWeixin } from "~sync/dynamic/weixin";
 import { prepareDynamicWeixinChannel } from "~sync/dynamic/weixinchannel-prepare";
 import { prepareDynamicX } from "~sync/dynamic/x-prepare";
 import { type ZsxqDynamicData, type ZsxqDynamicResult, prepareDynamicZsxq } from "~sync/dynamic/zsxq-prepare";
-import { prepareVideoWeixinChannel } from "~sync/video/weixinchannel-prepare";
+import { VideoDouyin } from "~sync/video/douyin";
+import { VideoRednote } from "~sync/video/rednote";
+import { videoTaskStep } from "~sync/video/task";
+import { VideoWeiXinChannel } from "~sync/video/weixinchannel";
 
 const ORIGIN = "http://localhost:2663";
 const PREFIX = "multipost.local-task.";
@@ -35,10 +38,30 @@ interface Claim {
   platform: string;
   data: DynamicData | ArticleData | VideoData;
   callbackToken: string;
-  operation: "start" | "resume" | "publish" | "reconcile" | "collect" | "account";
+  operation:
+    | "start"
+    | "resume"
+    | "publish"
+    | "reconcile"
+    | "collect"
+    | "account"
+    | "save_draft"
+    | "reconcile_draft"
+    | "repair_draft_title"
+    | "inspect_drafts"
+    | "inspect_draft_editor";
   sourceTaskId?: string;
   sourceTabId?: number;
+  readbackPath?: string;
   preparedEvidence?: Record<string, unknown>;
+  previousReceipt?: LocalReceipt;
+  videoStep?:
+    | "inspect_fields"
+    | "open_cover"
+    | "finish_cover"
+    | "open_horizontal_cover"
+    | "upload_cover"
+    | "upload_horizontal_cover";
 }
 
 async function saveResult(claim: Claim, receipt: LocalReceipt) {
@@ -65,6 +88,7 @@ async function loaded(tabId: number, allowInteractive = false) {
         const state = await chrome.scripting.executeScript({
           target: { tabId },
           func: () => document.readyState,
+          injectImmediately: true,
         });
         if (["interactive", "complete"].includes(state[0]?.result || "")) return tab;
       } catch {
@@ -76,10 +100,230 @@ async function loaded(tabId: number, allowInteractive = false) {
   throw new Error("PAGE_LOAD_TIMEOUT");
 }
 
+/** Thin transport for the upstream video handlers; their return is not publication proof. */
+async function executeVideoTask(claim: Claim, stored?: LocalReceipt) {
+  const receipt: LocalReceipt = {
+    taskId: claim.taskId,
+    platform: claim.platform,
+    action: claim.action,
+    status: "running",
+  };
+  try {
+    if (claim.operation === "resume" && claim.videoStep === "inspect_fields") {
+      const tabId = stored?.tabId || claim.previousReceipt?.tabId;
+      if (!tabId) throw new Error("ORIGINAL_PAGE_REQUIRED");
+      const results = await chrome.scripting.executeScript({
+        target: { tabId },
+        func: (platform: string) => {
+          const visible = (node: Element) => Array.from(node.getClientRects()).some((r) => r.width > 0 && r.height > 0);
+          const nodes = (selector: string) =>
+            Array.from(document.querySelectorAll<HTMLElement>(selector)).filter(visible);
+          const douyin = platform === "VIDEO_DOUYIN";
+          return {
+            emptyCoverEntries: nodes("div.noCover.uploadCover").length,
+            currentCoverEntries: nodes(douyin ? '[class*="coverControl-"]' : ".cover-plugin-preview .cover--column")
+              .length,
+            coverNodes: nodes(
+              douyin
+                ? '[class*="coverControl-"], .dy-creator-content-modal'
+                : ".cover-plugin-preview, .main-cover-editor-modal",
+            ).map((node) => ({ className: node.className, text: node.innerText.slice(0, 600) })),
+            dialogs: nodes(douyin ? ".dy-creator-content-modal" : ".main-cover-editor-modal").map((node) => ({
+              inputs: Array.from(node.querySelectorAll<HTMLInputElement>('input[type="file"]')).map((input) => ({
+                accept: input.accept,
+                className: input.className,
+              })),
+              buttons: Array.from(node.querySelectorAll<HTMLButtonElement>("button")).map((button) => ({
+                text: button.innerText,
+                disabled: button.disabled,
+              })),
+            })),
+            fileInputs: Array.from(document.querySelectorAll<HTMLInputElement>('input[type="file"]')).map((input) => ({
+              accept: input.accept,
+              className: input.className,
+              parentText: (input.parentElement?.innerText || "").slice(0, 300),
+              parentVisible: !!input.parentElement && visible(input.parentElement),
+              inDialog: !!input.closest(".dy-creator-content-modal"),
+              disabled: input.disabled,
+            })),
+            editorPresent: nodes('[contenteditable="true"]').length,
+          };
+        },
+        args: [claim.platform],
+      });
+      await saveResult(claim, {
+        ...receipt,
+        tabId,
+        status: "needs_attention",
+        code: "VIDEO_COVER_INSPECTED",
+        evidence: results[0]?.result,
+      });
+      return;
+    }
+    const openOnly =
+      claim.platform === "VIDEO_DOUYIN" && claim.operation === "resume" && claim.videoStep === "open_cover";
+    const horizontalOnly =
+      claim.platform === "VIDEO_DOUYIN" &&
+      claim.operation === "resume" &&
+      claim.videoStep === "upload_horizontal_cover";
+    const coverOnly =
+      horizontalOnly ||
+      (["VIDEO_REDNOTE", "VIDEO_DOUYIN"].includes(claim.platform) &&
+        claim.operation === "resume" &&
+        claim.videoStep === "upload_cover");
+    if (claim.operation !== "start" && claim.operation !== "account" && !coverOnly && !openOnly) {
+      await saveResult(claim, {
+        ...receipt,
+        tabId: stored?.tabId || claim.previousReceipt?.tabId,
+        status: "unsupported",
+        code: "UPSTREAM_VIDEO_NO_RESUME",
+        message: "上游视频流程不支持旧准备任务恢复或独立保存草稿；请使用新任务填写后停留或自动发表。",
+      });
+      return;
+    }
+    const urls: Record<string, string> = {
+      VIDEO_WEIXINCHANNEL: "https://channels.weixin.qq.com/platform/post/create",
+      VIDEO_REDNOTE: "https://creator.xiaohongshu.com/publish/publish?target=video",
+      VIDEO_DOUYIN: "https://creator.douyin.com/creator-micro/content/upload",
+    };
+    const existingTabId = stored?.tabId || claim.previousReceipt?.tabId;
+    if ((coverOnly || openOnly) && !existingTabId) throw new Error("ORIGINAL_PAGE_REQUIRED");
+    const tab =
+      coverOnly || openOnly
+        ? await chrome.tabs.get(existingTabId!)
+        : await chrome.tabs.create({ url: urls[claim.platform], active: true });
+    if (!tab.id) throw new Error("TAB_CREATE_FAILED");
+    receipt.tabId = tab.id;
+    await saveResult(claim, receipt);
+    await loaded(tab.id, true);
+    if (claim.operation === "account") {
+      const results = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: videoTaskStep,
+        args: [claim.platform, claim.data as VideoData, "account", claim.taskId],
+      });
+      const result = results[0]?.result;
+      await saveResult(claim, {
+        ...receipt,
+        status: result?.status || "failed",
+        code: result?.code,
+        evidence: result?.evidence,
+      });
+      return;
+    }
+    if ((claim.data as VideoData).expectedAccountId) {
+      const results = await chrome.scripting.executeScript({
+        target: { tabId: tab.id },
+        func: videoTaskStep,
+        args: [claim.platform, claim.data as VideoData, "account", claim.taskId],
+      });
+      const identity = results[0]?.result;
+      const actual = identity?.evidence?.accountId;
+      if (identity?.status !== "account_verified" || actual !== (claim.data as VideoData).expectedAccountId) {
+        await saveResult(claim, {
+          ...receipt,
+          status: "needs_attention",
+          code: actual ? "ACCOUNT_MISMATCH" : "ACCOUNT_UNVERIFIED",
+          message: "实际登录账号未通过核对；切换正确账号后继续。尚未执行上传或发表。",
+          evidence: { expectedAccountId: (claim.data as VideoData).expectedAccountId, actualAccountId: actual || null },
+        });
+        return;
+      }
+    }
+    const handler: (
+      data: SyncData,
+      coverOnly?: boolean,
+      openOnly?: boolean,
+      horizontalOnly?: boolean,
+    ) => Promise<unknown> =
+      claim.platform === "VIDEO_REDNOTE"
+        ? VideoRednote
+        : claim.platform === "VIDEO_DOUYIN"
+          ? VideoDouyin
+          : VideoWeiXinChannel;
+    const injection = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: handler,
+      args: [
+        {
+          platforms: [{ name: claim.platform }],
+          isAutoPublish: !coverOnly && !openOnly && claim.action === "publish",
+          data: claim.data,
+        } as SyncData,
+        coverOnly || openOnly,
+        openOnly,
+        horizontalOnly,
+      ],
+    });
+    const response = injection[0] as
+      | {
+          error?: unknown;
+          result?: {
+            ok?: boolean;
+            code?: string;
+            stage?: string;
+            coverConfirmed?: boolean;
+            details?: Record<string, unknown>;
+          };
+        }
+      | undefined;
+    if (response?.error) throw new Error(String(response.error));
+    if (openOnly && response?.result?.ok === true) {
+      await saveResult(claim, { ...receipt, status: "needs_attention", code: "DOUYIN_COVER_EDITOR_OPENED" });
+      return;
+    }
+    const files = claim.data as VideoData;
+    const coverRequested = !!(files.cover || files.verticalCover || files.horizontalCover);
+    if (
+      ["VIDEO_REDNOTE", "VIDEO_DOUYIN"].includes(claim.platform) &&
+      (response?.result?.ok !== true || (coverRequested && response.result.coverConfirmed !== true))
+    ) {
+      await saveResult(claim, {
+        ...receipt,
+        status: "failed",
+        code:
+          response?.result?.code ||
+          (claim.platform === "VIDEO_DOUYIN" ? "DOUYIN_RESULT_MISSING" : "REDNOTE_RESULT_MISSING"),
+        message: "视频脚本未确认封面完成，请查看具体步骤。",
+        evidence: { executionMode: "upstream", stage: response?.result?.stage, ...response?.result?.details },
+      });
+      return;
+    }
+    await saveResult(claim, {
+      ...receipt,
+      status: "executed",
+      code: "UPSTREAM_HANDLER_RETURNED",
+      evidence: {
+        executionMode: "upstream",
+        autoPublish: claim.action === "publish",
+        publicationConfirmed: false,
+        ...(["VIDEO_REDNOTE", "VIDEO_DOUYIN"].includes(claim.platform)
+          ? { coverConfirmed: response?.result?.coverConfirmed, ...response?.result?.details }
+          : {}),
+      },
+      message:
+        claim.action === "publish"
+          ? "上游发表脚本执行结束，平台结果请在页面查看。"
+          : "上游填写脚本执行结束，编辑页已保留；未自动保存草稿。",
+    });
+  } catch (error) {
+    await saveResult(claim, {
+      ...receipt,
+      status: "failed",
+      code: String(error).match(/(?:REDNOTE|DOUYIN)_COVER_[A-Z_]+/)?.[0] || "EXECUTION_ERROR",
+      message: String(error),
+    });
+  }
+}
+
 async function execute(claim: Claim) {
   const stored = (await chrome.storage.local.get(PREFIX + claim.taskId))[PREFIX + claim.taskId] as
     | LocalReceipt
     | undefined;
+  if (["VIDEO_WEIXINCHANNEL", "VIDEO_REDNOTE", "VIDEO_DOUYIN"].includes(claim.platform)) {
+    await executeVideoTask(claim, stored);
+    return;
+  }
   let receipt: LocalReceipt = {
     taskId: claim.taskId,
     action: claim.action,
@@ -317,7 +561,6 @@ async function execute(claim: Claim) {
     const zsxqDynamic = claim.platform === "DYNAMIC_ZSXQ" && claim.action === "prepare";
     const maimaiDynamic = claim.platform === "DYNAMIC_MAIMAI" && claim.action === "prepare";
     const xDynamic = claim.platform === "DYNAMIC_X" && claim.action === "prepare";
-    const weixinVideo = claim.platform === "VIDEO_WEIXINCHANNEL" && claim.action === "prepare";
     if (
       !weixinArticle &&
       !weixinDynamic &&
@@ -328,17 +571,12 @@ async function execute(claim: Claim) {
       !zsxqDynamic &&
       !maimaiDynamic &&
       !xDynamic &&
-      !weixinVideo &&
       (claim.action !== "prepare" || claim.platform !== "DYNAMIC_REDNOTE")
     ) {
       await saveResult(claim, { ...receipt, status: "unverified", code: "ACTION_NOT_VERIFIED" });
       return;
     }
     if ((weixinArticle || weixinDynamic) && claim.operation !== "start") {
-      await saveResult(claim, { ...receipt, status: "result_unconfirmed", code: "RECONCILE_REQUIRED" });
-      return;
-    }
-    if (weixinVideo && claim.operation !== "start") {
       await saveResult(claim, { ...receipt, status: "result_unconfirmed", code: "RECONCILE_REQUIRED" });
       return;
     }
@@ -444,21 +682,19 @@ async function execute(claim: Claim) {
                 ? "https://mp.weixin.qq.com/"
                 : weixinChannelDynamic
                   ? "https://channels.weixin.qq.com/platform/post/finderNewLifeCreate"
-                  : weixinVideo
-                    ? "https://channels.weixin.qq.com/platform/post/create"
-                    : douyinDynamic
-                      ? "https://creator.douyin.com/creator-micro/content/upload?default-tab=3"
-                      : toutiaoDynamic
-                        ? "https://mp.toutiao.com/profile_v4/weitoutiao/publish"
-                        : jikeDynamic
-                          ? "https://web.okjike.com/"
-                          : zsxqDynamic
-                            ? "https://wx.zsxq.com/"
-                            : maimaiDynamic
-                              ? "https://maimai.cn/community/home/following"
-                              : xDynamic
-                                ? "https://x.com/home"
-                                : "https://creator.xiaohongshu.com/publish/publish?target=image",
+                  : douyinDynamic
+                    ? "https://creator.douyin.com/creator-micro/content/upload?default-tab=3"
+                    : toutiaoDynamic
+                      ? "https://mp.toutiao.com/profile_v4/weitoutiao/publish"
+                      : jikeDynamic
+                        ? "https://web.okjike.com/"
+                        : zsxqDynamic
+                          ? "https://wx.zsxq.com/"
+                          : maimaiDynamic
+                            ? "https://maimai.cn/community/home/following"
+                            : xDynamic
+                              ? "https://x.com/home"
+                              : "https://creator.xiaohongshu.com/publish/publish?target=image",
             active: true,
           });
     if (!tab.id) throw new Error("TAB_CREATE_FAILED");
@@ -472,7 +708,7 @@ async function execute(claim: Claim) {
       new URL(readyTab.url || "").origin !==
       (weixinArticle || weixinDynamic
         ? "https://mp.weixin.qq.com"
-        : weixinVideo || weixinChannelDynamic
+        : weixinChannelDynamic
           ? "https://channels.weixin.qq.com"
           : douyinDynamic
             ? "https://creator.douyin.com"
@@ -493,16 +729,6 @@ async function execute(claim: Claim) {
         status: "needs_attention",
         code: "PLATFORM_ORIGIN_CHANGED",
       });
-      return;
-    }
-    if (weixinVideo) {
-      const results = await chrome.scripting.executeScript({
-        target: { tabId: tab.id },
-        func: prepareVideoWeixinChannel,
-        args: [claim.data as VideoData],
-      });
-      const result = results[0]?.result;
-      await saveResult(claim, { ...receipt, ...(result || { status: "result_unconfirmed", code: "MISSING_RESULT" }) });
       return;
     }
     if (weixinChannelDynamic) {
@@ -807,7 +1033,12 @@ async function pollLocalTasks() {
     const token = (await chrome.storage.local.get(EXECUTOR_TOKEN))[EXECUTOR_TOKEN];
     if (typeof token !== "string") return;
     const response = await fetch(`${ORIGIN}/next`, {
-      headers: { Authorization: `Bearer ${token}`, "X-MultiPost-Extension-Id": chrome.runtime.id },
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "X-MultiPost-Extension-Id": chrome.runtime.id,
+        "X-FastPublish-Video-Tasks": "1",
+        "X-FastPublish-Video-Revision": "54",
+      },
       signal: AbortSignal.timeout(5000),
     });
     if (response.status === 204) return;
@@ -863,7 +1094,10 @@ export function localTaskMessageHandler(
         { platform: "DYNAMIC_DOUYIN", action: "prepare" },
         { platform: "DYNAMIC_TOUTIAO", action: "prepare" },
         { platform: "DYNAMIC_OKJIKE", action: "prepare" },
-        { platform: "VIDEO_WEIXINCHANNEL", action: "prepare" },
+        ...["VIDEO_WEIXINCHANNEL", "VIDEO_REDNOTE", "VIDEO_DOUYIN"].flatMap((platform) => [
+          { platform, action: "prepare" },
+          { platform, action: "publish" },
+        ]),
       ],
     });
     return true;

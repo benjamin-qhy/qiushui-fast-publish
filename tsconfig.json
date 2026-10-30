@@ -1,12 +1,13 @@
 {
   "extends": "plasmo/templates/tsconfig.base",
-  "exclude": ["node_modules"],
+  "exclude": ["node_modules", "skills/qiushui-fast-publish/scripts", "tests/bun-*.ts"],
   "include": [".plasmo/index.d.ts", "./**/*.ts", "./**/*.tsx"],
   "compilerOptions": {
     "jsx": "react-jsx",
     "paths": {
       "~*": ["./src/*"]
     },
-    "baseUrl": "."
+    "baseUrl": ".",
+    "types": ["chrome", "node", "react", "react-dom"]
   }
 }

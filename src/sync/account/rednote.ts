@@ -9,13 +9,17 @@ export async function getRednoteAccountInfo(): Promise<AccountInfo> {
       success?: boolean;
       data?: { userId?: string; userName?: string; userDesc?: string; userAvatar?: string };
     };
-    if (tabs[0]?.id) {
+    const accountTab = tabs.find((tab) => tab.active) ?? tabs.at(-1);
+    if (accountTab?.id) {
       result =
         (
           await chrome.scripting.executeScript({
-            target: { tabId: tabs[0].id },
+            target: { tabId: accountTab.id },
             func: async () => {
-              const response = await fetch("/api/galaxy/user/info", { credentials: "include" });
+              const response = await fetch("/api/galaxy/user/info", {
+                credentials: "include",
+                signal: AbortSignal.timeout(10000),
+              });
               if (!response.ok) return {};
               const payload = await response.json();
               const user = payload?.data;
@@ -35,7 +39,10 @@ export async function getRednoteAccountInfo(): Promise<AccountInfo> {
           })
         )[0]?.result || {};
     } else {
-      const response = await fetch("https://creator.xiaohongshu.com/api/galaxy/user/info", { credentials: "include" });
+      const response = await fetch("https://creator.xiaohongshu.com/api/galaxy/user/info", {
+        credentials: "include",
+        signal: AbortSignal.timeout(10000),
+      });
       result = response.ok ? await response.json() : {};
     }
     {
@@ -62,7 +69,7 @@ export async function getRednoteAccountInfo(): Promise<AccountInfo> {
   }
 
   // 直接使用fetch API获取小红书页面HTML
-  const response = await fetch("https://www.xiaohongshu.com/explore");
+  const response = await fetch("https://www.xiaohongshu.com/explore", { signal: AbortSignal.timeout(10000) });
 
   if (!response.ok) {
     throw new Error(`HTTP错误，状态码: ${response.status}`);

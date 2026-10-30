@@ -1,6 +1,6 @@
 import type { SyncData, VideoData } from "../common";
 
-export async function VideoRednote(data: SyncData) {
+export async function VideoRednote(data: SyncData, coverOnly = false) {
   const { content, video, title, tags, cover, scheduledPublishTime } = data.data as VideoData;
 
   // 辅助函数：等待元素出现
@@ -103,163 +103,244 @@ export async function VideoRednote(data: SyncData) {
     }
   }
 
-  // 辅助函数：上传封面
+  // The platform may already have a video-frame cover. Operate inside its cover editor.
   async function uploadCover(coverFile: NonNullable<VideoData["cover"]>) {
-    console.debug("tryCover", coverFile);
-    const coverUploadTrigger = document.querySelector("div.noCover.uploadCover") as HTMLElement;
-    console.debug("coverUpload", coverUploadTrigger);
-    if (!coverUploadTrigger) {
-      console.error("未找到封面上传触发器: div.noCover.uploadCover");
-      return;
-    }
-    coverUploadTrigger.click();
+    const visible = (node: Element) =>
+      Array.from(node.getClientRects()).some((rect) => rect.width > 0 && rect.height > 0) &&
+      getComputedStyle(node).visibility !== "hidden" &&
+      getComputedStyle(node).display !== "none";
+    const enabled = (node: HTMLElement) =>
+      visible(node) && !(node as HTMLButtonElement).disabled && node.getAttribute("aria-disabled") !== "true";
+    const wait = async <T>(read: () => T | undefined, code: string, timeout = 60000): Promise<T> => {
+      const deadline = Date.now() + timeout;
+      while (true) {
+        const result = read();
+        if (result !== undefined) return result;
+        if (Date.now() >= deadline) throw new Error(code);
+        await new Promise((resolve) => setTimeout(resolve, 250));
+      }
+    };
+    const dialogs = () =>
+      Array.from(document.querySelectorAll<HTMLElement>(".main-cover-editor-modal")).filter(visible);
+    const modal = () => {
+      const nodes = dialogs();
+      return nodes.length === 1 ? nodes[0] : undefined;
+    };
+    if (!coverFile.type?.startsWith("image/")) throw new Error("REDNOTE_COVER_INVALID_IMAGE");
 
-    const fileInputSelector = "input[accept='image/png, image/jpeg, image/*']";
-    try {
-      await waitForElement(fileInputSelector);
-    } catch (e) {
-      console.error(`等待元素 ${fileInputSelector} 超时`, e);
-      return;
-    }
+    const trigger = await wait(() => {
+      const empty = Array.from(document.querySelectorAll<HTMLElement>("div.noCover.uploadCover")).filter(enabled);
+      if (empty.length === 1) return empty[0];
+      const roots = Array.from(document.querySelectorAll<HTMLElement>(".cover-plugin-preview .cover--column")).filter(
+        visible,
+      );
+      const edits = roots
+        .flatMap((root) => Array.from(root.querySelectorAll<HTMLElement>("*")))
+        .filter((node) => !node.hasAttribute("disabled") && node.textContent?.trim() === "编辑封面")
+        .filter((node) => !Array.from(node.children).some((child) => child.textContent?.trim() === "编辑封面"));
+      return edits.length === 1 ? edits[0] : undefined;
+    }, "REDNOTE_COVER_ENTRY_TIMEOUT");
+    trigger.click();
+    const dialog = await wait(modal, "REDNOTE_COVER_DIALOG_TIMEOUT");
+    const input = await wait(() => {
+      const inputs = Array.from(dialog.querySelectorAll<HTMLInputElement>('input[type="file"]')).filter(
+        (node) => /image|\.png|\.jpe?g|\.webp/i.test(node.accept) && !/replace/.test(node.className) && !node.disabled,
+      );
+      return inputs.length === 1 ? inputs[0] : undefined;
+    }, "REDNOTE_COVER_INPUT_TIMEOUT");
+    const response = await fetch(coverFile.url);
+    if (!response.ok) throw new Error("REDNOTE_COVER_FILE_READ_FAILED");
+    const blob = await response.blob();
+    const transfer = new DataTransfer();
+    transfer.items.add(new File([blob], coverFile.name, { type: coverFile.type }));
 
-    const fileInput = document.querySelector(fileInputSelector) as HTMLInputElement;
-    console.debug("fileInput", fileInput);
-    if (!fileInput) {
-      console.error("未找到封面上传的文件输入元素");
-      return;
-    }
+    const canvases = () => Array.from(dialog.querySelectorAll<HTMLCanvasElement>("canvas"));
+    const canvasState = (canvas: HTMLCanvasElement) => {
+      try {
+        return canvas.toDataURL();
+      } catch {
+        return "";
+      }
+    };
+    const oldImages = new Map(
+      Array.from(dialog.querySelectorAll<HTMLImageElement>("img")).map((image) => [
+        image,
+        image.currentSrc || image.src,
+      ]),
+    );
+    const oldCanvases = new Map(canvases().map((canvas) => [canvas, canvasState(canvas)]));
+    input.files = transfer.files;
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    input.dispatchEvent(new Event("input", { bubbles: true }));
 
-    const dataTransfer = new DataTransfer();
-    console.debug("try upload file", coverFile);
-    if (!coverFile.type.includes("image/")) {
-      console.error("提供的封面文件不是图片");
-      return;
-    }
-
-    try {
-      const response = await fetch(coverFile.url);
-      const arrayBuffer = await response.arrayBuffer();
-      const file = new File([arrayBuffer], coverFile.name, { type: coverFile.type });
-      dataTransfer.items.add(file);
-    } catch (error) {
-      console.error(`上传封面 ${coverFile.url} 失败:`, error);
-      return;
-    }
-
-    if (dataTransfer.files.length === 0) {
-      return;
-    }
-
-    fileInput.files = dataTransfer.files;
-    fileInput.dispatchEvent(new Event("change", { bubbles: true }));
-    fileInput.dispatchEvent(new Event("input", { bubbles: true }));
-    console.debug("文件上传操作触发");
-    await new Promise((resolve) => setTimeout(resolve, 3000));
-
-    const doneButtons = document.querySelectorAll("span");
-    console.debug("doneButtons", doneButtons);
-    const doneButton = Array.from(doneButtons).find((btn) => btn.textContent?.trim() === "确定");
-    console.debug("doneButton", doneButton);
-    if (doneButton) {
-      (doneButton as HTMLElement).click();
-    }
+    const confirm = await wait(
+      () => {
+        if (!visible(dialog)) throw new Error("REDNOTE_COVER_DIALOG_CLOSED");
+        const messages = Array.from(dialog.querySelectorAll<HTMLElement>("span, p, div"))
+          .filter((node) => visible(node) && node.children.length === 0)
+          .map((node) => node.textContent?.trim() || "");
+        if (messages.some((text) => /上传失败|图片加载失败|图片处理失败|格式不支持|文件过大/.test(text)))
+          throw new Error("REDNOTE_COVER_UPLOAD_FAILED");
+        const busy =
+          Array.from(dialog.querySelectorAll('[role="progressbar"], .upload-progress, [aria-busy="true"]')).some(
+            visible,
+          ) || messages.some((text) => /^(上传中|加载中|处理中|检测中)/.test(text));
+        const imageReady = Array.from(dialog.querySelectorAll<HTMLImageElement>("img")).some(
+          (image) =>
+            visible(image) &&
+            image.complete &&
+            image.naturalWidth > 0 &&
+            !!(image.currentSrc || image.src) &&
+            (!oldImages.has(image) || oldImages.get(image) !== (image.currentSrc || image.src)),
+        );
+        const canvasReady = canvases().some(
+          (canvas) =>
+            visible(canvas) &&
+            canvas.width > 0 &&
+            canvas.height > 0 &&
+            (!oldCanvases.has(canvas) || (!!canvasState(canvas) && oldCanvases.get(canvas) !== canvasState(canvas))),
+        );
+        const buttons = Array.from(dialog.querySelectorAll<HTMLElement>('button, [role="button"]')).filter(
+          (button) => enabled(button) && /^(确定|完成)$/.test(button.textContent?.trim() || ""),
+        );
+        return !busy && (imageReady || canvasReady) && buttons.length === 1 ? buttons[0] : undefined;
+      },
+      "REDNOTE_COVER_PROCESSING_TIMEOUT",
+      120000,
+    );
+    confirm.click();
+    await wait(() => (dialogs().length === 0 ? true : undefined), "REDNOTE_COVER_CONFIRM_TIMEOUT");
+    console.info("小红书封面图片已处理并确认");
   }
 
-  // 等待页面加载
-  await waitForElement('span[class="title"]');
-  await new Promise((resolve) => setTimeout(resolve, 1000));
+  let stage = "page";
+  try {
+    if (coverOnly) {
+      stage = "cover";
+      if (!cover) throw new Error("REDNOTE_COVER_MISSING");
+      await uploadCover(cover);
+      return { ok: true, coverRequested: true, coverConfirmed: true };
+    }
+    // 等待页面加载
+    await waitForElement('span[class="title"]');
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
-  // 上传视频
-  await uploadVideo();
+    // 上传视频
+    stage = "video";
+    await uploadVideo();
 
-  // 填写内容
-  // 等待标题输入框出现
-  await waitForElement('input[type="text"]');
-  await new Promise((resolve) => setTimeout(resolve, 1000));
+    stage = "fields";
+    // 填写内容
+    // 等待标题输入框出现
+    await waitForElement('input[type="text"]');
+    await new Promise((resolve) => setTimeout(resolve, 1000));
 
-  // 填写标题
-  const titleInput = document.querySelector('input[type="text"]') as HTMLInputElement;
-  if (titleInput) {
-    const finalTitle = title?.slice(0, 20) || "";
-    titleInput.value = finalTitle;
-    titleInput.dispatchEvent(new Event("input", { bubbles: true }));
-  }
+    // 填写标题
+    const titleInput = document.querySelector('input[type="text"]') as HTMLInputElement;
+    if (titleInput) {
+      const finalTitle = title?.slice(0, 20) || "";
+      titleInput.value = finalTitle;
+      titleInput.dispatchEvent(new Event("input", { bubbles: true }));
+    }
 
-  // 填写内容和标签
-  const editor = document.querySelector('div[contenteditable="true"]') as HTMLElement;
-  if (!editor) {
-    console.error("未找到编辑器元素");
-    return;
-  }
+    // 填写内容和标签
+    const editor = document.querySelector('div[contenteditable="true"]') as HTMLElement;
+    if (!editor) {
+      throw new Error("REDNOTE_EDITOR_NOT_READY");
+    }
 
-  // 填写正文内容
-  editor.focus();
-  const contentPasteEvent = new ClipboardEvent("paste", {
-    bubbles: true,
-    cancelable: true,
-    clipboardData: new DataTransfer(),
-  });
-  contentPasteEvent.clipboardData.setData("text/plain", `${content}\n` || "");
-  editor.dispatchEvent(contentPasteEvent);
-  await new Promise((resolve) => setTimeout(resolve, 1000));
-  editor.blur();
+    // 填写正文内容
+    editor.focus();
+    const contentPasteEvent = new ClipboardEvent("paste", {
+      bubbles: true,
+      cancelable: true,
+      clipboardData: new DataTransfer(),
+    });
+    contentPasteEvent.clipboardData.setData("text/plain", `${content}\n` || "");
+    editor.dispatchEvent(contentPasteEvent);
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+    editor.blur();
 
-  // 添加标签
-  if (tags && tags.length > 0) {
-    for (const tag of tags) {
-      editor.focus();
-      const tagPasteEvent = new ClipboardEvent("paste", {
-        bubbles: true,
-        cancelable: true,
-        clipboardData: new DataTransfer(),
-      });
-      tagPasteEvent.clipboardData.setData("text/plain", `#${tag}`);
-      editor.dispatchEvent(tagPasteEvent);
+    // 添加标签
+    if (tags && tags.length > 0) {
+      for (const tag of tags) {
+        editor.focus();
+        const tagPasteEvent = new ClipboardEvent("paste", {
+          bubbles: true,
+          cancelable: true,
+          clipboardData: new DataTransfer(),
+        });
+        tagPasteEvent.clipboardData.setData("text/plain", `#${tag}`);
+        editor.dispatchEvent(tagPasteEvent);
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+
+        // 模拟回车键按下以确认标签
+        const enterEvent = new KeyboardEvent("keydown", {
+          bubbles: true,
+          cancelable: true,
+          key: "Enter",
+          code: "Enter",
+          keyCode: 13,
+          which: 13,
+        });
+        editor.dispatchEvent(enterEvent);
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+      }
+    }
+
+    stage = "cover";
+    // 上传封面
+    if (cover) {
+      await uploadCover(cover);
+    }
+
+    stage = "schedule";
+    // 处理定时发布
+    if (scheduledPublishTime) {
       await new Promise((resolve) => setTimeout(resolve, 2000));
-
-      // 模拟回车键按下以确认标签
-      const enterEvent = new KeyboardEvent("keydown", {
-        bubbles: true,
-        cancelable: true,
-        key: "Enter",
-        code: "Enter",
-        keyCode: 13,
-        which: 13,
-      });
-      editor.dispatchEvent(enterEvent);
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-    }
-  }
-
-  // 上传封面
-  if (cover) {
-    await uploadCover(cover);
-  }
-
-  // 处理定时发布
-  if (scheduledPublishTime) {
-    await new Promise((resolve) => setTimeout(resolve, 2000));
-    await setScheduledPublishTime(scheduledPublishTime);
-  }
-
-  if (data.isAutoPublish === true) {
-    // 轮询期间重新查询按钮，避免页面重渲染后持有失效节点；视频处理较慢，最多约 60s
-    const findPublishButton = () =>
-      Array.from(document.querySelectorAll("button")).find((button) => button.textContent?.includes("发布"));
-
-    let publishButton = findPublishButton();
-    for (let i = 0; i < 60; i++) {
-      publishButton = findPublishButton();
-      if (publishButton && publishButton.getAttribute("aria-disabled") !== "true") break;
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      await setScheduledPublishTime(scheduledPublishTime);
     }
 
-    if (publishButton && publishButton.getAttribute("aria-disabled") !== "true") {
-      publishButton.dispatchEvent(new Event("click", { bubbles: true }));
-      await new Promise((resolve) => setTimeout(resolve, 10000));
-      window.location.href = "https://creator.xiaohongshu.com/new/note-manager";
-    } else {
-      console.debug("小红书：发布按钮仍不可用，跳过自动发布");
+    stage = "publish";
+    if (data.isAutoPublish === true) {
+      // 轮询期间重新查询按钮，避免页面重渲染后持有失效节点；视频处理较慢，最多约 60s
+      const findPublishButton = () =>
+        Array.from(document.querySelectorAll("button")).find((button) => button.textContent?.includes("发布"));
+
+      let publishButton = findPublishButton();
+      for (let i = 0; i < 60; i++) {
+        publishButton = findPublishButton();
+        if (publishButton && publishButton.getAttribute("aria-disabled") !== "true") break;
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+
+      if (publishButton && publishButton.getAttribute("aria-disabled") !== "true") {
+        publishButton.dispatchEvent(new Event("click", { bubbles: true }));
+        await new Promise((resolve) => setTimeout(resolve, 10000));
+        window.location.href = "https://creator.xiaohongshu.com/new/note-manager";
+      } else {
+        console.debug("小红书：发布按钮仍不可用，跳过自动发布");
+      }
     }
+    return { ok: true, coverRequested: !!cover, coverConfirmed: !!cover };
+  } catch (error) {
+    const text = String(error);
+    const visible = (node: Element) =>
+      Array.from(node.getClientRects()).some((rect) => rect.width > 0 && rect.height > 0);
+    const modals = Array.from(document.querySelectorAll<HTMLElement>(".main-cover-editor-modal")).filter(visible);
+    return {
+      ok: false,
+      code: text.match(/REDNOTE_[A-Z_]+/)?.[0] || "REDNOTE_STEP_FAILED",
+      stage,
+      // Structural diagnostics only; never return file URLs, account data or page HTML.
+      details: {
+        emptyCoverEntries: document.querySelectorAll("div.noCover.uploadCover").length,
+        currentCoverEntries: document.querySelectorAll(".cover-plugin-preview .cover--column").length,
+        coverDialogs: modals.length,
+        fileInputs: modals
+          .flatMap((modal) => Array.from(modal.querySelectorAll<HTMLInputElement>('input[type="file"]')))
+          .map((input) => ({ accept: input.accept, className: input.className, disabled: input.disabled })),
+      },
+    };
   }
 }

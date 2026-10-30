@@ -1,6 +1,6 @@
 import type { FileData, SyncData, VideoData } from "../common";
 
-export async function VideoDouyin(data: SyncData) {
+export async function VideoDouyin(data: SyncData, coverOnly = false, openOnly = false, horizontalOnly = false) {
   /**
    * Format date to yyyy-MM-dd HH:mm format
    * @param date - Date object to format
@@ -62,79 +62,166 @@ export async function VideoDouyin(data: SyncData) {
     console.log("视频上传事件已触发");
   }
 
-  // 按视频宽高比挑选封面(注入函数无法 import 共享工具,内联实现):横版优先横封面、竖版优先竖封面,回退 cover
-  async function pickCoverByAspect(
-    videoFile: FileData | undefined,
-    coverImg?: FileData,
-    horizontalCoverImg?: FileData,
-    verticalCoverImg?: FileData,
-  ): Promise<FileData | undefined> {
-    if (!horizontalCoverImg && !verticalCoverImg) return coverImg;
-    let isLandscape = false;
-    if (videoFile?.url) {
-      const dims = await new Promise<{ width: number; height: number } | null>((resolve) => {
-        const probe = document.createElement("video");
-        probe.preload = "metadata";
-        probe.onloadedmetadata = () => resolve({ width: probe.videoWidth, height: probe.videoHeight });
-        probe.onerror = () => resolve(null);
-        probe.src = videoFile.url;
-      });
-      if (dims) isLandscape = dims.width > dims.height;
+  // Each supplied cover updates its own slot; the video aspect does not select a single cover.
+  async function uploadCover(cover: FileData, role: "vertical" | "horizontal", openOnly = false): Promise<void> {
+    const visible = (node: Element) =>
+      Array.from(node.getClientRects()).some((r) => r.width > 0 && r.height > 0) &&
+      getComputedStyle(node).display !== "none" &&
+      getComputedStyle(node).visibility !== "hidden";
+    const enabled = (node: HTMLElement) =>
+      !(node as HTMLButtonElement).disabled && node.getAttribute("aria-disabled") !== "true";
+    const wait = async <T>(read: () => T | undefined, code: string, timeout = 120000): Promise<T> => {
+      const until = Date.now() + timeout;
+      while (true) {
+        const value = read();
+        if (value !== undefined) return value;
+        if (Date.now() >= until) throw new Error(code);
+        await new Promise((resolve) => setTimeout(resolve, 250));
+      }
+    };
+    if (!cover.type?.startsWith("image/")) throw new Error("DOUYIN_COVER_INVALID_IMAGE");
+    const dialogs = () =>
+      Array.from(document.querySelectorAll<HTMLElement>(".dy-creator-content-modal")).filter(visible);
+    if (!dialogs().length) {
+      const trigger = await wait(() => {
+        const roots = Array.from(document.querySelectorAll<HTMLElement>('[class*="coverControl-"]'))
+          .filter(visible)
+          .filter((node) => (node.textContent || "").includes(role === "vertical" ? "竖封面" : "横封面"));
+        const edits = roots
+          .flatMap((root) => Array.from(root.querySelectorAll<HTMLElement>("*")))
+          .filter((node) => enabled(node) && /^(编辑封面|选择封面)$/.test(node.textContent?.trim() || ""))
+          .filter(
+            (node) =>
+              !Array.from(node.children).some((child) => /^(编辑封面|选择封面)$/.test(child.textContent?.trim() || "")),
+          );
+        return edits.length === 1 ? edits[0] : undefined;
+      }, "DOUYIN_COVER_ENTRY_TIMEOUT");
+      trigger.click();
     }
-    return isLandscape
-      ? horizontalCoverImg || coverImg || verticalCoverImg
-      : verticalCoverImg || coverImg || horizontalCoverImg;
-  }
-
-  async function uploadCover(cover: FileData): Promise<void> {
-    console.log("尝试上传封面", cover);
-    const coverUploadContainer = await waitForElement("div.content-upload-new");
-    console.log("封面上传容器", coverUploadContainer);
-    if (!coverUploadContainer) return;
-
-    const coverUploadButton = coverUploadContainer.firstChild?.firstChild?.firstChild as HTMLElement;
-    console.log("封面上传按钮", coverUploadButton);
-    if (!coverUploadButton) return;
-
-    coverUploadButton.click();
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-
-    const fileInput = (await waitForElement('input[type="file"].semi-upload-hidden-input')) as HTMLInputElement;
-    console.log("封面文件输入框", fileInput);
-    if (!fileInput) return;
-
-    if (!cover.type?.includes("image/")) {
-      console.log("提供的封面文件不是图片类型", cover);
-      return;
-    }
-
+    const modal = await wait(() => {
+      const roots = dialogs();
+      return roots.length === 1 ? roots[0] : undefined;
+    }, "DOUYIN_COVER_DIALOG_TIMEOUT");
+    if (openOnly) return;
+    const input = await wait(() => {
+      const inputs = Array.from(modal.querySelectorAll<HTMLInputElement>('input[type="file"]'))
+        .filter(
+          (node) =>
+            /image|\.png|\.jpe?g|\.webp/i.test(node.accept) && !node.disabled && !/replace/.test(node.className),
+        )
+        .filter(
+          (node) =>
+            !!node.parentElement &&
+            visible(node.parentElement) &&
+            /点击上传文件或拖拽文件到这里/.test(node.parentElement.textContent || ""),
+        );
+      return inputs.length === 1 ? inputs[0] : undefined;
+    }, "DOUYIN_COVER_INPUT_TIMEOUT");
     const response = await fetch(cover.url);
-    const arrayBuffer = await response.arrayBuffer();
-    const imageFile = new File([arrayBuffer], cover.name, { type: cover.type });
-
-    const dataTransfer = new DataTransfer();
-    dataTransfer.items.add(imageFile);
-    fileInput.files = dataTransfer.files;
-
-    const changeEvent = new Event("change", { bubbles: true });
-    fileInput.dispatchEvent(changeEvent);
-
-    const inputEvent = new Event("input", { bubbles: true });
-    fileInput.dispatchEvent(inputEvent);
-
-    console.log("封面文件上传操作已触发");
-    await new Promise((resolve) => setTimeout(resolve, 3000));
-
-    const doneButtons = document.querySelectorAll("button.semi-button.semi-button-primary.semi-button-light");
-    console.log("完成按钮列表", doneButtons);
-    const doneButton = Array.from(doneButtons).find((button) => button.textContent === "完成");
-    console.log("完成按钮", doneButton);
-    if (doneButton) {
-      (doneButton as HTMLElement).click();
-    }
+    if (!response.ok) throw new Error("DOUYIN_COVER_FILE_READ_FAILED");
+    const transfer = new DataTransfer();
+    transfer.items.add(new File([await response.blob()], cover.name, { type: cover.type }));
+    const images = () => Array.from(modal.querySelectorAll<HTMLImageElement>("img"));
+    const canvases = () => Array.from(modal.querySelectorAll<HTMLCanvasElement>("canvas"));
+    const pixels = (canvas: HTMLCanvasElement) => {
+      try {
+        return canvas.toDataURL();
+      } catch {
+        return "";
+      }
+    };
+    const oldImages = new Map(images().map((image) => [image, image.currentSrc || image.src]));
+    const oldCanvases = new Map(canvases().map((canvas) => [canvas, pixels(canvas)]));
+    input.files = transfer.files;
+    input.dispatchEvent(new Event("change", { bubbles: true }));
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+    const confirm = await wait(() => {
+      const text = Array.from(modal.querySelectorAll<HTMLElement>("span, p, div"))
+        .filter((node) => visible(node) && node.children.length === 0)
+        .map((node) => node.textContent?.trim() || "");
+      if (text.some((value) => /上传失败|图片加载失败|图片处理失败|格式不支持|文件过大/.test(value)))
+        throw new Error("DOUYIN_COVER_UPLOAD_FAILED");
+      const busy =
+        Array.from(modal.querySelectorAll('[role="progressbar"], [aria-busy="true"], .upload-progress')).some(
+          visible,
+        ) || text.some((value) => /^(上传中|处理中|加载中|检测中)/.test(value));
+      const ready =
+        images().some(
+          (image) =>
+            visible(image) &&
+            image.complete &&
+            image.naturalWidth > 0 &&
+            !!(image.currentSrc || image.src) &&
+            (!oldImages.has(image) || oldImages.get(image) !== (image.currentSrc || image.src)),
+        ) ||
+        canvases().some(
+          (canvas) =>
+            visible(canvas) &&
+            canvas.width > 0 &&
+            canvas.height > 0 &&
+            (!oldCanvases.has(canvas) || (!!pixels(canvas) && pixels(canvas) !== oldCanvases.get(canvas))),
+        );
+      const buttons = Array.from(modal.querySelectorAll<HTMLButtonElement>('button, [role="button"]')).filter(
+        (node) => visible(node) && enabled(node) && /^(完成|确定)$/.test(node.textContent?.trim() || ""),
+      );
+      return !busy && ready && buttons.length === 1 ? buttons[0] : undefined;
+    }, "DOUYIN_COVER_PROCESSING_TIMEOUT");
+    confirm.click();
+    // Some versions put an image crop confirmation inside the cover editor.
+    const clicked = new Set<HTMLElement>([confirm]);
+    await wait(() => {
+      const roots = dialogs();
+      if (!roots.length) return true;
+      const buttons = roots
+        .flatMap((root) => Array.from(root.querySelectorAll<HTMLElement>('button, [role="button"]')))
+        .filter(
+          (node) =>
+            visible(node) &&
+            enabled(node) &&
+            /^(完成|确定)$/.test(node.textContent?.trim() || "") &&
+            !clicked.has(node),
+        );
+      if (buttons.length === 1 && clicked.size < 3) {
+        clicked.add(buttons[0]);
+        buttons[0].click();
+      }
+      return undefined;
+    }, "DOUYIN_COVER_CONFIRM_TIMEOUT");
   }
 
+  let stage = "video";
+  const coverResults: string[] = [];
+  const fillCovers = async () => {
+    const files = data.data as VideoData;
+    for (const [role, file] of [
+      ["vertical", files.verticalCover || files.cover],
+      ["horizontal", files.horizontalCover],
+    ] as const) {
+      if (!file) continue;
+      stage = `cover_${role}`;
+      await uploadCover(file, role);
+      coverResults.push(role);
+    }
+  };
   try {
+    if (coverOnly) {
+      if (openOnly) {
+        const files = data.data as VideoData;
+        const cover = files.verticalCover || files.cover;
+        if (!cover) throw new Error("DOUYIN_COVER_INVALID_IMAGE");
+        stage = "cover_vertical";
+        await uploadCover(cover, "vertical", true);
+        return { ok: true, details: { coverOpened: true } };
+      }
+      if (horizontalOnly) {
+        const cover = (data.data as VideoData).horizontalCover;
+        if (!cover) throw new Error("DOUYIN_COVER_INVALID_IMAGE");
+        stage = "cover_horizontal";
+        await uploadCover(cover, "horizontal");
+        coverResults.push("horizontal");
+      } else await fillCovers();
+      return { ok: true, coverConfirmed: true, details: { coverResults } };
+    }
     const { content, video, title, tags, cover, horizontalCover, verticalCover, scheduledPublishTime } =
       data.data as VideoData;
     // 处理视频上传
@@ -195,12 +282,8 @@ export async function VideoDouyin(data: SyncData) {
       }
     }
 
-    // 处理封面上传:按视频宽高比挑选横/竖封面
-    const chosenCover = await pickCoverByAspect(video, cover, horizontalCover, verticalCover);
-    if (chosenCover) {
-      await new Promise((resolve) => setTimeout(resolve, 2000));
-      await uploadCover(chosenCover);
-    }
+    await fillCovers();
+    stage = "schedule";
 
     // 处理定时发布
     if (scheduledPublishTime) {
@@ -236,7 +319,13 @@ export async function VideoDouyin(data: SyncData) {
         console.log('未找到"发布"按钮');
       }
     }
+    return { ok: true, coverConfirmed: true, details: { coverResults } };
   } catch (error) {
-    console.error("DouyinVideo 发布过程中出错:", error);
+    return {
+      ok: false,
+      code: String(error).match(/DOUYIN_COVER_[A-Z_]+/)?.[0] || "DOUYIN_STEP_FAILED",
+      stage,
+      details: { coverResults },
+    };
   }
 }

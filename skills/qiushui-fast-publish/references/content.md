@@ -1,6 +1,8 @@
+> 此为旧content.json/content.yaml入口。当前作品视频使用主Skill和[中文视频任务](publication.md)。
+
 # 内容目录
 
-一个目录包含 `content.yaml` 或 `content.json` 和所引用的正文、图片。脚本接受两种等价的元数据格式；YAML 读取依赖 scripts/requirements.txt，JSON 使用 Python 标准库。
+一个目录包含 `content.yaml` 或 `content.json` 和所引用的正文、图片。脚本接受两种等价的元数据格式；YAML 使用 Bun 内置解析器，JSON 使用标准 JSON 解析；运行无需 Python。
 
 ```yaml
 type: DYNAMIC
@@ -29,8 +31,8 @@ images: []
 
 公众号文章保存草稿使用 `type: ARTICLE`、`title`、`digest`、`htmlFile` 和 `cover`。`htmlFile` 是内容目录内的 HTML 正文文件，`cover` 是 PNG、JPEG 或 WebP 封面。调用时明确指定 `--action save_draft`；默认准备动作不会自动创建草稿。仓库测试示例见 `tests/fixtures/article/weixin-draft/`（仓库根目录下，不随 Skill 安装）。当前不处理 HTML 内嵌的本地图片，正文需使用纯文本及基础 HTML；脚本和 iframe 会被拒绝。
 
-视频号视频准备使用 `type: VIDEO`、`title`、`content`（或 `bodyFile`）和 `video`。测试视频须为内容目录内不超过 100 MiB 的 MP4；调用时使用 `--action prepare --timeout 240`。仓库测试示例见 `tests/fixtures/video/weixinchannel-prepare/`（仓库根目录下，不随 Skill 安装）。该适配正等待真实登录现场验收，未验证草稿保存或发表。
+三平台视频使用 `type: VIDEO`；字段、原任务恢复和公开提交步骤见[视频任务](video.md)。视频入口本地契约已开发，真实上传、账号读取、可见性和结果核对仍须逐平台验收；预检通过只表示输入合格。
 
 四种类型的平台配置格式见 `../config/platforms.yaml`，其中 `actions` 指定各平台默认目标动作，`targets.DYNAMIC_ZSXQ` 指定知识星球的目标星球。内容包也可通过 `overrides.DYNAMIC_ZSXQ.targetSphere` 指定一次任务的目标。`plan-config` 与 `run-config` 会按配置顺序逐个平台预检／执行并返回独立任务 ID。本期九个平台的动态图文已分别取得真实页面回执；公众号文章及视频号视频不在默认配置。其他类型或动作明确报告尚未验证，后续逐类扩展。
 
-员工管理账号时，小红书图文可附 expectedAccountId，值是稳定平台账号ID；插件实时核对，不依赖昵称或旧账号缓存。该字段目前仅用于小红书。
+员工管理账号时，小红书图文可附 expectedAccountId，值是稳定平台账号ID；插件实时核对，不依赖昵称或旧账号缓存。图文分支该字段目前仅用于小红书；视频分支见视频任务约定。

@@ -43,6 +43,7 @@ export interface PodcastData {
 }
 
 export interface FileData {
+  sha256?: string;
   name: string;
   url: string;
   type?: string;
@@ -65,6 +66,9 @@ export interface ArticleData {
 }
 
 export interface VideoData {
+  draftOnly?: boolean; // Upload and persist a draft; public submission requires a full recheck.
+  expectedAccountId?: string;
+  visibility?: "公开";
   title: string;
   content: string;
   video: FileData;
